@@ -195,6 +195,14 @@ def update_lesson(lesson_id: int, lesson_update: dict, db: Session = Depends(get
     db.refresh(lesson)
     return {"status": "success", "message": "Lesson updated", "data": lesson}
 
+@app.delete("/api/reset")
+def reset_database(db: Session = Depends(get_db)):
+    """DANGER: Wipe all lessons and source documents. Fresh start."""
+    deleted_lessons = db.query(models.Lesson).delete()
+    deleted_docs = db.query(models.SourceDocument).delete()
+    db.commit()
+    return {"status": "success", "message": f"Deleted {deleted_lessons} lessons and {deleted_docs} source documents."}
+
 # --- Prompt Configuration Endpoints ---
 
 DEFAULT_PROMPTS = {
@@ -400,8 +408,8 @@ Be thorough - extract every distinct topic you can identify."""
                 else:
                     print(f"[WORKER] Batch {batch_idx+1} failed: {chunk_err}")
             
-            # Rate limit protection: wait 6 seconds between API calls
-            time.sleep(6)
+            # Rate limit protection: wait 8 seconds between API calls
+            time.sleep(8)
         
         doc.close()
         

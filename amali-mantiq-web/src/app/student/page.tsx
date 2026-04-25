@@ -11,6 +11,7 @@ interface Lesson {
     objective: string;
     definition_classic: string;
     definition_modern: string;
+    source_document: string;
 }
 
 interface ChatMessage {
@@ -169,8 +170,8 @@ export default function StudentLessonViewer() {
                             </p>
                         </div>
                         <div className="flex flex-col gap-2 p-4 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm">
-                            <span className="px-4 py-1.5 bg-white/10 border border-white/10 rounded-full text-sm font-medium">تیسیر المنطق</span>
-                            <span className="px-4 py-1.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-full text-sm font-medium">Epistemology</span>
+                            <span className="px-4 py-1.5 bg-white/10 border border-white/10 rounded-full text-sm font-medium">{lesson.source_document || 'درسِ نظامی'}</span>
+                            <span className="px-4 py-1.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-full text-sm font-medium">{lesson.title_english?.split(']')[0]?.replace('[', '') || 'Lesson'}</span>
                         </div>
                     </div>
                 </section>

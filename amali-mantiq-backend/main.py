@@ -97,20 +97,18 @@ def check_status():
 # --- Database Endpoints (Supabase) ---
 
 @app.post("/api/lessons/approve")
-def approve_and_sync_lesson(lesson: LessonSync, db: Session = Depends(get_db)):
-    """Teacher Dashboard pushes approved AI lessons into Supabase"""
-    new_lesson = models.Lesson(
-        title_english=lesson.title_english,
-        title_urdu=lesson.title_urdu,
-        objective=lesson.objective,
-        definition_classic=lesson.definition_classic,
-        definition_modern=lesson.definition_modern,
-        is_approved=True
-    )
-    db.add(new_lesson)
+def approve_and_sync_lesson(payload: dict, db: Session = Depends(get_db)):
+    """Approve a pending lesson by marking is_approved = True"""
+    lesson_id = payload.get("id")
+    if not lesson_id:
+        raise HTTPException(status_code=400, detail="Lesson ID required")
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    lesson.is_approved = True
+    lesson.is_active = True
     db.commit()
-    db.refresh(new_lesson)
-    return {"status": "success", "message": "Lesson successfully synced to Supabase DB!", "id": new_lesson.id}
+    return {"status": "success", "message": "Lesson approved and published!", "id": lesson.id}
 
 @app.get("/api/lessons")
 def pull_active_lessons(db: Session = Depends(get_db)):

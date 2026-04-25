@@ -64,7 +64,7 @@ export default function PendingReviewPage() {
         if (!currentLesson) return;
         if (!confirm("Move this draft to trash?")) return;
         try {
-            const res = await fetch(`http://127.0.0.1:8000/api/lessons/${currentLesson.id}/trash`, { method: 'PATCH' });
+            const res = await fetch(`${API_URL}/api/lessons/${currentLesson.id}/trash`, { method: 'PATCH' });
             if (res.ok) {
                 removeCurrentAndAdvance();
             }

@@ -38,7 +38,7 @@ export default function TrashPage() {
 
     const handleRestore = async (id: number) => {
         try {
-            const res = await fetch(`http://127.0.0.1:8000/api/lessons/${id}/restore`, { method: 'PATCH' });
+            const res = await fetch(`${API_URL}/api/lessons/${id}/restore`, { method: 'PATCH' });
             if (res.ok) {
                 setTrashedLessons(trashedLessons.filter(l => l.id !== id));
             }
@@ -50,7 +50,7 @@ export default function TrashPage() {
     const handlePermanentDelete = async (id: number) => {
         if (!confirm("This will PERMANENTLY delete this lesson. This cannot be undone. Continue?")) return;
         try {
-            const res = await fetch(`http://127.0.0.1:8000/api/lessons/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/api/lessons/${id}`, { method: 'DELETE' });
             if (res.ok) {
                 setTrashedLessons(trashedLessons.filter(l => l.id !== id));
             }

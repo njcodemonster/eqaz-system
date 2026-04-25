@@ -150,7 +150,7 @@ export default function OverviewPage() {
                                         </span>
                                         <button 
                                             onClick={async () => {
-                                                await fetch(`http://127.0.0.1:8000/api/lessons/${lesson.id}/trash`, { method: 'PATCH' });
+                                                await fetch(`${API_URL}/api/lessons/${lesson.id}/trash`, { method: 'PATCH' });
                                                 setRecentLessons(prev => prev.filter(l => l.id !== lesson.id));
                                                 setStats(prev => ({
                                                     ...prev,

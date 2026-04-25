@@ -40,7 +40,7 @@ export default function LiveContentDbPage() {
 
     const handleToggleActive = async (id: number) => {
         try {
-            const res = await fetch(`http://127.0.0.1:8000/api/lessons/${id}/toggle-active`, { method: 'PATCH' });
+            const res = await fetch(`${API_URL}/api/lessons/${id}/toggle-active`, { method: 'PATCH' });
             if (res.ok) {
                 const data = await res.json();
                 setLessons(lessons.map(l => l.id === id ? {...l, is_active: data.is_active} : l));
@@ -53,7 +53,7 @@ export default function LiveContentDbPage() {
     const handleTrash = async (id: number) => {
         if (!confirm("Move this lesson to trash? Students will no longer see it.")) return;
         try {
-            const res = await fetch(`http://127.0.0.1:8000/api/lessons/${id}/trash`, { method: 'PATCH' });
+            const res = await fetch(`${API_URL}/api/lessons/${id}/trash`, { method: 'PATCH' });
             if (res.ok) {
                 setLessons(lessons.filter(l => l.id !== id));
             }

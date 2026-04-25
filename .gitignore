@@ -1,0 +1,18 @@
+# Backend
+amali-mantiq-backend/.env
+amali-mantiq-backend/__pycache__/
+amali-mantiq-backend/*.pyc
+amali-mantiq-backend/.venv/
+amali-mantiq-backend/uploads/
+
+# Frontend
+amali-mantiq-web/node_modules/
+amali-mantiq-web/.next/
+amali-mantiq-web/.env*
+amali-mantiq-web/.vercel/
+amali-mantiq-web/*.tsbuildinfo
+amali-mantiq-web/next-env.d.ts
+
+# General
+.DS_Store
+*.pem

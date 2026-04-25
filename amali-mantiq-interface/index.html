@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عملی منطق | Practical Logic System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <i class="fa-solid fa-brain"></i>
+                <h1>عملی منطق</h1>
+            </div>
+            <p class="subtitle">Practical Logic</p>
+            
+            <nav class="main-nav">
+                <h3 class="nav-section">لیولز (Levels)</h3>
+                <ul class="nav-links">
+                    <li class="active"><a href="#"><i class="fa-solid fa-layer-group"></i> بیسک (Basic)</a></li>
+                    <li><a href="#"><i class="fa-solid fa-chart-line"></i> انٹرمیڈیٹ (Intermediate)</a></li>
+                    <li><a href="#"><i class="fa-solid fa-plane-departure"></i> ایڈوانس (Advanced)</a></li>
+                </ul>
+
+                <h3 class="nav-section">حصے (Sections)</h3>
+                <ul class="nav-links">
+                    <li class="active"><a href="#"><i class="fa-solid fa-book-open"></i> درسی مواد (Theory)</a></li>
+                    <li><a href="#"><i class="fa-solid fa-pencil"></i> ورک بک (Exercises)</a></li>
+                    <li><a href="#"><i class="fa-solid fa-robot"></i> AI ٹیوٹر (AI Tutor)</a></li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="progress-container">
+                    <span>پیش رفت (Progress)</span>
+                    <span>30%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill"></div></div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header glass-panel">
+                <div class="breadcrumb">
+                    بیسک <i class="fa-solid fa-chevron-left"></i> باب 1: مبادیات <i class="fa-solid fa-chevron-left"></i> <strong>سبق 1</strong>
+                </div>
+                <div class="user-profile">
+                    <button class="icon-btn"><i class="fa-solid fa-bell"></i></button>
+                    <div class="avatar">ط</div>
+                </div>
+            </header>
+
+            <!-- Lesson Hero -->
+            <section class="lesson-hero">
+                <div class="hero-bg-shapes"></div>
+                <h2>تصور اور تصدیق</h2>
+                <p>Apprehension vs. Judgment</p>
+                <div class="tags">
+                    <span class="tag">تیسیر المنطق</span>
+                    <span class="tag modern">Modern: Epistemology</span>
+                </div>
+            </section>
+
+            <!-- Tabs -->
+            <div class="tabs-container glass-panel">
+                <button class="tab-btn active" data-target="theory"><i class="fa-solid fa-book"></i> نظریاتی حصہ</button>
+                <button class="tab-btn" data-target="workbook"><i class="fa-solid fa-flask"></i> عملی ورک بک</button>
+                <button class="tab-btn" data-target="application"><i class="fa-solid fa-lightbulb"></i> روزمرہ اطلاق</button>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-panels glass-panel">
+                <!-- Theory Tab -->
+                <div id="theory" class="panel active">
+                    <h3 class="section-title">بنیادی تعریفات (Core Definitions)</h3>
+                    <div class="grid-2">
+                        <div class="card classical-card">
+                            <h4 class="card-title">قدیم تصور</h4>
+                            <p class="arabic-text">حصول صورة الشيء في العقل</p>
+                            <p><strong>تصور:</strong> ذہن میں کسی چیز کا خاکہ یا شکل آنا، بغیر کسی فیصلے کے۔ جیسے: 'پہاڑ'، 'آگ'۔</p>
+                            <p><strong>تصدیق:</strong> کسی چیز کے بارے میں حکم لگانا کہ وہ ہے یا نہیں۔ جیسے: 'آگ گرم ہے'۔</p>
+                        </div>
+                        <div class="card modern-card">
+                            <h4 class="card-title">جدید تقابل (Modern Equivalent)</h4>
+                            <p><strong>Simple Apprehension (تصور):</strong> Grasping the essence of a concept without affirming or denying anything about it.</p>
+                            <p><strong>Judgment / Proposition (تصدیق):</strong> A statement that is either true or false, connecting concepts.</p>
+                        </div>
+                    </div>
+                    
+                    <h3 class="section-title mt-2">خلاصہ اور مثالیں</h3>
+                    <div class="info-box">
+                        <i class="fa-solid fa-info-circle"></i>
+                        <p><strong>تمثیلی انداز:</strong> تصور ایسا ہے جیسے آپ کسی سے پوچھیں "کیا تم نے سیب دیکھا؟" اور تصدیق ایسا ہے کہ "کیا تم مانتے ہو کہ یہ سیب میٹھا ہے؟"</p>
+                    </div>
+                </div>
+
+                <!-- Workbook Tab -->
+                <div id="workbook" class="panel hidden">
+                    <h3 class="section-title">ذہنی مشق (Mental Exercise)</h3>
+                    <p>درج ذیل جملوں میں سے تصور اور تصدیق کی شناخت کریں:</p>
+                    <div class="quiz-item">
+                        <label>1. "سرد موسم"</label>
+                        <select>
+                            <option>انتخاب کریں</option>
+                            <option>تصور</option>
+                            <option>تصدیق</option>
+                        </select>
+                    </div>
+                    <div class="quiz-item">
+                        <label>2. "سردی آ چکی ہے"</label>
+                        <select>
+                            <option>انتخاب کریں</option>
+                            <option>تصور</option>
+                            <option>تصدیق</option>
+                        </select>
+                    </div>
+                    <br>
+                    <button class="action-btn">جواب چیک کریں</button>
+                </div>
+
+                <!-- Application Tab -->
+                <div id="application" class="panel hidden">
+                    <h3 class="section-title">روزمرہ اطلاق (Daily Life Application)</h3>
+                    <p>آج کے دور میں جب ہم سوشل میڈیا پر کوئی خبر (تصور) دیکھتے ہیں تو بغیر سوچے سمجھے اسے سچ مان لیتے ہیں (تصدیق)۔</p>
+                    <div class="tip-box mt-2">
+                        <i class="fa-solid fa-bolt"></i>
+                        <p><strong>Practical Tip:</strong> اگلی بار جب کوئی فیک نیوز آئے تو پہلے 'تصور' (خبر کیا ہے) کو سمجھیں، پھر تحقیق کے بعد 'تصدیق' (حکم) لگائیں۔ Critical Thinking کا یہ پہلا اصول ہے!</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="navigation-buttons">
+                <button class="btn btn-outline">پچھلا سبق</button>
+                <button class="btn btn-primary">اگلا سبق <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i></button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const tabs = document.querySelectorAll('.tab-btn');
+        const panels = document.querySelectorAll('.panel');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => {
+                    p.classList.remove('active');
+                    p.classList.add('hidden');
+                });
+
+                tab.classList.add('active');
+                const target = document.getElementById(tab.dataset.target);
+                target.classList.remove('hidden');
+                // Small delay to allow display block to apply before animating opacity
+                setTimeout(() => target.classList.add('active'), 10);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -275,6 +275,118 @@ def update_prompt_config(update: PromptUpdate, db: Session = Depends(get_db)):
     db.refresh(config)
     return {"status": "success", "message": f"Prompt '{update.prompt_name}' saved."}
 
+# --- AI-Powered Student Features ---
+
+class QuizRequest(BaseModel):
+    lesson_id: int
+
+class TutorChatRequest(BaseModel):
+    lesson_id: int
+    question: str
+    history: list = []
+
+@app.post("/api/quiz/generate")
+def generate_quiz(req: QuizRequest, db: Session = Depends(get_db)):
+    """Generate dynamic quiz questions from lesson content using Gemini."""
+    if not gemini_initialized:
+        raise HTTPException(status_code=503, detail="Gemini AI not available")
+    
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == req.lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    prompt = f"""You are a Dars-e-Nizami quiz generator. Based on this lesson, create exactly 4 multiple-choice questions.
+
+LESSON TITLE (Urdu): {lesson.title_urdu}
+LESSON TITLE (English): {lesson.title_english}
+OBJECTIVE: {lesson.objective}
+CLASSIC DEFINITION: {lesson.definition_classic}
+MODERN DEFINITION: {lesson.definition_modern}
+
+RULES:
+1. Questions MUST be in Urdu with English terminology in brackets where needed
+2. Each question must have exactly 3 options
+3. Questions should test understanding of the lesson concepts
+4. Mix conceptual and application-based questions
+5. Return ONLY valid JSON array, no markdown, no extra text
+
+FORMAT (return exactly this JSON structure):
+[
+  {{
+    "id": 1,
+    "text": "سوال کا متن یہاں (Question text here)",
+    "options": [
+      {{"key": "a", "text": "پہلا آپشن"}},
+      {{"key": "b", "text": "دوسرا آپشن"}},
+      {{"key": "c", "text": "تیسرا آپشن"}}
+    ],
+    "correct": "a",
+    "explanation": "صحیح جواب کی وضاحت"
+  }}
+]"""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
+        raw = response.text.strip()
+        # Clean markdown code fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+        
+        questions = json.loads(raw)
+        return {"status": "success", "data": questions}
+    except Exception as e:
+        print(f"[QUIZ] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Quiz generation failed: {str(e)}")
+
+
+@app.post("/api/tutor/chat")
+def tutor_chat(req: TutorChatRequest, db: Session = Depends(get_db)):
+    """AI Tutor answers questions about a specific lesson using Gemini."""
+    if not gemini_initialized:
+        raise HTTPException(status_code=503, detail="Gemini AI not available")
+    
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == req.lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    # Get tutor prompt from DB or use default
+    config = db.query(models.PromptConfig).filter(models.PromptConfig.prompt_name == "tutor_system_prompt").first()
+    system_prompt = config.prompt_text if config else DEFAULT_PROMPTS.get("tutor_system_prompt", "")
+    
+    context = f"""{system_prompt}
+
+CURRENT LESSON CONTEXT:
+Title (Urdu): {lesson.title_urdu}
+Title (English): {lesson.title_english}
+Objective: {lesson.objective}
+Classic Definition: {lesson.definition_classic}
+Modern Definition: {lesson.definition_modern}
+
+STUDENT'S QUESTION: {req.question}
+
+RULES:
+- Answer primarily in Urdu, use English technical terms in brackets
+- Keep answers focused on this lesson's content
+- Be encouraging and pedagogical
+- If the question is unrelated, gently redirect to the lesson topic"""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=context
+        )
+        return {"status": "success", "reply": response.text}
+    except Exception as e:
+        print(f"[TUTOR] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Tutor error: {str(e)}")
+
+
 # --- Background PDF Processing ---
 
 def process_pdf_background(pdf_bytes: bytes, filename: str, source_doc_id: int):

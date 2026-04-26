@@ -19,6 +19,19 @@ interface ChatMessage {
     text: string;
 }
 
+interface QuizOption {
+    key: string;
+    text: string;
+}
+
+interface QuizQuestion {
+    id: number;
+    text: string;
+    options: QuizOption[];
+    correct: string;
+    explanation: string;
+}
+
 export default function StudentLessonViewer() {
     const [lessons, setLessons] = useState<Lesson[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -31,8 +44,10 @@ export default function StudentLessonViewer() {
     const [isSending, setIsSending] = useState(false);
 
     // Workbook State
+    const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
     const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
     const [quizChecked, setQuizChecked] = useState(false);
+    const [quizLoading, setQuizLoading] = useState(false);
 
     const lesson = lessons[currentIndex] || null;
 
@@ -59,6 +74,7 @@ export default function StudentLessonViewer() {
             setCurrentIndex(prev => prev + 1);
             setMessages([]);
             setQuizAnswers({});
+            setQuizQuestions([]);
             setQuizChecked(false);
             setActiveTab('theory');
         }
@@ -69,6 +85,7 @@ export default function StudentLessonViewer() {
             setCurrentIndex(prev => prev - 1);
             setMessages([]);
             setQuizAnswers({});
+            setQuizQuestions([]);
             setQuizChecked(false);
             setActiveTab('theory');
         }
@@ -88,7 +105,7 @@ export default function StudentLessonViewer() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     lesson_id: lesson.id,
-                    user_message: userMsg
+                    question: userMsg
                 })
             });
             const data = await res.json();
@@ -104,11 +121,33 @@ export default function StudentLessonViewer() {
 
     const handleQuizChange = (questionId: number, value: string) => {
         setQuizAnswers(prev => ({...prev, [questionId]: value}));
-        setQuizChecked(false);
     };
 
     const checkQuiz = () => {
         setQuizChecked(true);
+    };
+
+    const loadQuiz = async () => {
+        if (!lesson) return;
+        setQuizLoading(true);
+        setQuizQuestions([]);
+        setQuizAnswers({});
+        setQuizChecked(false);
+        try {
+            const res = await fetch(`${API_URL}/api/quiz/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ lesson_id: lesson.id })
+            });
+            const json = await res.json();
+            if (json.data) {
+                setQuizQuestions(json.data);
+            }
+        } catch (err) {
+            console.error("Quiz generation failed:", err);
+        } finally {
+            setQuizLoading(false);
+        }
     };
 
     if (loading) {
@@ -178,7 +217,7 @@ export default function StudentLessonViewer() {
 
                 <div className="flex gap-4 mb-8 bg-white/5 p-2 rounded-2xl backdrop-blur-sm">
                     <TabButton active={activeTab === 'theory'} onClick={() => setActiveTab('theory')} icon={<BookOpen size={20} />} label="نظریاتی حصہ (Theory)" />
-                    <TabButton active={activeTab === 'workbook'} onClick={() => setActiveTab('workbook')} icon={<FileQuestion size={20} />} label="عملی ورک بک (Workbook)" />
+                    <TabButton active={activeTab === 'workbook'} onClick={() => { setActiveTab('workbook'); if (quizQuestions.length === 0) loadQuiz(); }} icon={<FileQuestion size={20} />} label="عملی ورک بک (Workbook)" />
                     <TabButton active={activeTab === 'tutor'} onClick={() => setActiveTab('tutor')} icon={<MessageSquare size={20} />} label="AI ٹیوٹر (AI Tutor)" />
                 </div>
 
@@ -217,39 +256,73 @@ export default function StudentLessonViewer() {
                     {activeTab === 'workbook' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <h2 className="text-3xl text-indigo-400 mb-4" style={{fontFamily: "'Noto Nastaliq Urdu', serif"}}>ذہنی مشق (Mental Exercise)</h2>
-                            <p className="text-slate-400 mb-8 border-b border-white/10 pb-4">Read the following phrases and categorize them correctly based on the definitions in the Theory section.</p>
+                            <p className="text-slate-400 mb-8 border-b border-white/10 pb-4">سبق کی بنیاد پر تیار کردہ سوالات۔ اپنی سمجھ کو جانچیں۔</p>
                             
-                            <div className="space-y-6 max-w-3xl">
-                                {[
-                                    { id: 1, text: "سرد موسم (Cold Weather)", correct: "tasawwur" },
-                                    { id: 2, text: "سردی آ چکی ہے (Winter has arrived)", correct: "tasdiq" }
-                                ].map(q => (
-                                    <div key={q.id} className={`p-6 rounded-2xl border transition-colors ${quizChecked ? (quizAnswers[q.id] === q.correct ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-red-900/20 border-red-500/30') : 'bg-white/5 border-white/10 hover:border-white/20'}`}>
-                                        <label className="text-xl text-slate-200 block mb-4 font-medium" style={{fontFamily: "'Noto Nastaliq Urdu', serif"}}>{q.id}. "{q.text}"</label>
-                                        <div className="flex gap-4">
-                                            <button 
-                                                onClick={() => handleQuizChange(q.id, 'tasawwur')}
-                                                className={`flex-1 py-3 px-4 rounded-xl border ${quizAnswers[q.id] === 'tasawwur' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-black/20 border-white/10 text-slate-400 hover:bg-white/5'}`}
-                                            >تصور (Apprehension)</button>
-                                            <button 
-                                                onClick={() => handleQuizChange(q.id, 'tasdiq')}
-                                                className={`flex-1 py-3 px-4 rounded-xl border ${quizAnswers[q.id] === 'tasdiq' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-black/20 border-white/10 text-slate-400 hover:bg-white/5'}`}
-                                            >تصدیق (Judgment)</button>
-                                        </div>
-                                        {quizChecked && (
-                                            <div className="mt-4 flex items-center gap-2 text-sm">
-                                                {quizAnswers[q.id] === q.correct 
-                                                    ? <><CheckCircle2 className="text-emerald-500" size={16}/> <span className="text-emerald-400">Correct!</span></>
-                                                    : <><AlertCircle className="text-red-500" size={16}/> <span className="text-red-400">Incorrect. Review the theory definitions.</span></>
-                                                }
+                            {quizLoading ? (
+                                <div className="flex flex-col items-center justify-center py-16 gap-4">
+                                    <RefreshCw className="animate-spin text-indigo-500" size={32}/>
+                                    <p className="text-slate-400 text-sm">AI سوالات تیار کر رہا ہے...</p>
+                                </div>
+                            ) : quizQuestions.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 gap-4 text-slate-500">
+                                    <FileQuestion size={40} className="opacity-40"/>
+                                    <p>سوالات دستیاب نہیں</p>
+                                    <button onClick={loadQuiz} className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-sm hover:bg-indigo-500 transition-colors">دوبارہ کوشش کریں</button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="space-y-6 max-w-3xl">
+                                        {quizQuestions.map((q: QuizQuestion) => (
+                                            <div key={q.id} className={`p-6 rounded-2xl border transition-colors ${quizChecked ? (quizAnswers[q.id] === q.correct ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-red-900/20 border-red-500/30') : 'bg-white/5 border-white/10 hover:border-white/20'}`}>
+                                                <label className="text-xl text-slate-200 block mb-4 font-medium" style={{fontFamily: "'Noto Nastaliq Urdu', serif"}} dir="rtl">{q.id}. {q.text}</label>
+                                                <div className="flex flex-col gap-3">
+                                                    {q.options.map((opt: QuizOption) => (
+                                                        <button 
+                                                            key={opt.key}
+                                                            onClick={() => !quizChecked && handleQuizChange(q.id, opt.key)}
+                                                            disabled={quizChecked}
+                                                            className={`py-3 px-4 rounded-xl border text-right transition-colors ${
+                                                                quizChecked && opt.key === q.correct 
+                                                                    ? 'bg-emerald-600 border-emerald-500 text-white' 
+                                                                    : quizAnswers[q.id] === opt.key 
+                                                                        ? quizChecked 
+                                                                            ? 'bg-red-600/50 border-red-500 text-white' 
+                                                                            : 'bg-indigo-600 border-indigo-500 text-white'
+                                                                        : 'bg-black/20 border-white/10 text-slate-400 hover:bg-white/5'
+                                                            }`}
+                                                            dir="rtl"
+                                                        >
+                                                            <span className="font-bold ml-2">{opt.key})</span> {opt.text}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                {quizChecked && q.explanation && (
+                                                    <div className="mt-4 p-3 bg-white/5 rounded-xl border border-white/10 text-sm text-slate-300" dir="rtl">
+                                                        <strong className="text-indigo-400">وضاحت: </strong>{q.explanation}
+                                                    </div>
+                                                )}
                                             </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-4 mt-8">
+                                        <button onClick={checkQuiz} disabled={quizChecked || Object.keys(quizAnswers).length < quizQuestions.length} className="px-8 py-4 bg-white text-slate-950 font-bold rounded-xl disabled:opacity-50 hover:bg-indigo-100 transition-colors">
+                                            جواب چیک کریں (Check Answers)
+                                        </button>
+                                        {quizChecked && (
+                                            <button onClick={loadQuiz} className="px-8 py-4 border border-white/20 text-slate-300 font-bold rounded-xl hover:bg-white/5 transition-colors">
+                                                نئے سوالات (New Questions)
+                                            </button>
                                         )}
                                     </div>
-                                ))}
-                            </div>
-                            <button onClick={checkQuiz} disabled={Object.keys(quizAnswers).length < 2} className="mt-8 px-8 py-4 bg-white text-slate-950 font-bold rounded-xl disabled:opacity-50 hover:bg-indigo-100 transition-colors">
-                                جواب چیک کریں (Check Answers)
-                            </button>
+                                    {quizChecked && (
+                                        <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10">
+                                            <p className="text-xl font-bold text-center" style={{fontFamily: "'Noto Nastaliq Urdu', serif"}}>
+                                                نتیجہ: {Object.entries(quizAnswers).filter(([qid, ans]) => quizQuestions.find((q: QuizQuestion) => q.id === Number(qid))?.correct === ans).length} / {quizQuestions.length} صحیح
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     )}
 

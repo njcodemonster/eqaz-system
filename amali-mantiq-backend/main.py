@@ -35,6 +35,7 @@ try:
                 pass
         # RBAC migrations
         rbac_migrations = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true",
             "ALTER TABLE lessons ADD COLUMN IF NOT EXISTS subject_id INTEGER REFERENCES subjects(id)",
             "ALTER TABLE lessons ADD COLUMN IF NOT EXISTS source_document_id INTEGER REFERENCES source_documents(id)",
             "ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS subject_id INTEGER REFERENCES subjects(id)",
@@ -153,6 +154,8 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == req.email).first()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if getattr(user, 'is_active', True) is False:
+        raise HTTPException(status_code=403, detail="Account disabled by administrator")
     token = create_access_token(user.id, user.email, user.role)
     return {"status": "success", "token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role}}
 
@@ -291,6 +294,85 @@ def delete_teacher(teacher_id: int, admin: models.User = Depends(require_role("s
     db.delete(teacher)
     db.commit()
     return {"status": "success", "message": "Teacher deleted"}
+
+# --- Student Management ---
+
+@app.get("/api/users/students")
+def get_all_students(admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    students = db.query(models.User).filter(models.User.role == models.UserRole.student).all()
+    result = []
+    for s in students:
+        result.append({
+            "id": s.id, "email": s.email, "full_name": s.full_name, "is_active": getattr(s, 'is_active', True)
+        })
+    return {"status": "success", "data": result}
+
+@app.get("/api/teacher/students")
+def get_teacher_students(teacher: models.User = Depends(require_role("teacher")), db: Session = Depends(get_db)):
+    # Get subjects this teacher is assigned to
+    teacher_subjects = db.query(models.TeacherSubject).filter(models.TeacherSubject.teacher_id == teacher.id).all()
+    subject_ids = [ts.subject_id for ts in teacher_subjects]
+    
+    # Get students enrolled in these subjects (approved only)
+    enrollments = db.query(models.StudentEnrollment).filter(
+        models.StudentEnrollment.subject_id.in_(subject_ids),
+        models.StudentEnrollment.status == "approved"
+    ).all()
+    
+    student_ids = list(set([e.student_id for e in enrollments]))
+    students = db.query(models.User).filter(models.User.id.in_(student_ids)).all()
+    
+    result = []
+    for s in students:
+        s_enrollments = [e for e in enrollments if e.student_id == s.id]
+        subject_names = []
+        for e in s_enrollments:
+            sub = db.query(models.Subject).get(e.subject_id)
+            if sub: subject_names.append(sub.name_english)
+            
+        result.append({
+            "id": s.id, "email": s.email, "full_name": s.full_name, "is_active": getattr(s, 'is_active', True),
+            "enrolled_subjects": ", ".join(subject_names)
+        })
+    return {"status": "success", "data": result}
+
+@app.patch("/api/users/student/{student_id}/toggle-active")
+def toggle_student_active(student_id: int, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    student = db.query(models.User).filter(models.User.id == student_id, models.User.role == models.UserRole.student).first()
+    if not student: raise HTTPException(status_code=404, detail="Student not found")
+    
+    current = getattr(student, 'is_active', True)
+    student.is_active = not current
+    db.commit()
+    return {"status": "success", "message": f"Student {'enabled' if student.is_active else 'disabled'}"}
+
+@app.delete("/api/enrollments/student/{student_id}")
+def kick_student(student_id: int, user: models.User = Depends(require_role("teacher")), db: Session = Depends(get_db)):
+    # Teacher kicks out a student from all their subjects
+    teacher_subjects = db.query(models.TeacherSubject).filter(models.TeacherSubject.teacher_id == user.id).all()
+    subject_ids = [ts.subject_id for ts in teacher_subjects]
+    
+    enrollments = db.query(models.StudentEnrollment).filter(
+        models.StudentEnrollment.student_id == student_id,
+        models.StudentEnrollment.subject_id.in_(subject_ids)
+    ).all()
+    
+    if not enrollments:
+        raise HTTPException(status_code=404, detail="Student not enrolled in your subjects")
+        
+    for enrollment in enrollments:
+        # Delete progress
+        lessons = db.query(models.Lesson).filter(models.Lesson.subject_id == enrollment.subject_id).all()
+        lesson_ids = [l.id for l in lessons]
+        if lesson_ids:
+            db.query(models.StudentProgress).filter(
+                models.StudentProgress.student_id == student_id,
+                models.StudentProgress.lesson_id.in_(lesson_ids)
+            ).delete(synchronize_session=False)
+        db.delete(enrollment)
+        
+    db.commit()
+    return {"status": "success", "message": "Student removed from your subjects"}
 
 # ============================================================
 # ENROLLMENT ENDPOINTS

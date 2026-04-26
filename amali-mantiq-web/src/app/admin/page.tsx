@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
 import { BookOpen, Users, GraduationCap, Upload, Settings, LogOut, Plus, Trash2, UserPlus, Link2, Bell, CheckCircle, XCircle, FileText, RefreshCw, Pencil, X, RotateCcw, Eye, EyeOff, Database } from 'lucide-react';
 
-type Tab = 'overview' | 'lessons' | 'subjects' | 'teachers' | 'enrollments' | 'sources' | 'prompts';
+type Tab = 'overview' | 'lessons' | 'subjects' | 'teachers' | 'students' | 'enrollments' | 'sources' | 'prompts';
 
 export default function AdminDashboard() {
     const { user, logout, authFetch, loading: authLoading } = useAuth();
@@ -15,6 +15,7 @@ export default function AdminDashboard() {
     // Data
     const [subjects, setSubjects] = useState<any[]>([]);
     const [teachers, setTeachers] = useState<any[]>([]);
+    const [students, setStudents] = useState<any[]>([]);
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [pendingLessons, setPendingLessons] = useState<any[]>([]);
     const [approvedLessons, setApprovedLessons] = useState<any[]>([]);
@@ -41,9 +42,10 @@ export default function AdminDashboard() {
 
     const loadAll = async () => {
         try {
-            const [s, t, e, p, a] = await Promise.all([
+            const [s, t, st, e, p, a] = await Promise.all([
                 fetch(`${API_URL}/api/subjects`).then(r => r.json()).catch(() => ({ data: [] })),
                 authFetch(`${API_URL}/api/teachers`).then(r => r.json()).catch(() => ({ data: [] })),
+                authFetch(`${API_URL}/api/users/students`).then(r => r.json()).catch(() => ({ data: [] })),
                 authFetch(`${API_URL}/api/enrollments/pending`).then(r => r.json()).catch(() => ({ data: [] })),
                 fetch(`${API_URL}/api/lessons/pending`).then(r => r.json()).catch(() => ({ data: [] })),
                 fetch(`${API_URL}/api/lessons`).then(r => r.json()).catch(() => ({ data: [] })),
@@ -51,6 +53,7 @@ export default function AdminDashboard() {
             const tr = await fetch(`${API_URL}/api/lessons/trashed`).then(r => r.json()).catch(() => ({ data: [] }));
             setSubjects(s.data || []);
             setTeachers(t.data || []);
+            setStudents(st.data || []);
             setEnrollments(e.data || []);
             setPendingLessons(p.data || []);
             setApprovedLessons(a.data || []);
@@ -181,6 +184,11 @@ export default function AdminDashboard() {
         loadAll();
     };
 
+    const toggleStudentActive = async (id: number) => {
+        await authFetch(`${API_URL}/api/users/student/${id}/toggle-active`, { method: 'PATCH' });
+        loadAll();
+    };
+
     if (authLoading || !user) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><RefreshCw className="animate-spin text-indigo-500" size={32}/></div>;
 
     const tabs: { key: Tab; icon: React.ReactNode; label: string }[] = [
@@ -188,6 +196,7 @@ export default function AdminDashboard() {
         { key: 'lessons', icon: <Database size={18}/>, label: `Lessons (${pendingLessons.length + approvedLessons.length})` },
         { key: 'subjects', icon: <FileText size={18}/>, label: 'Subjects' },
         { key: 'teachers', icon: <Users size={18}/>, label: 'Teachers' },
+        { key: 'students', icon: <GraduationCap size={18}/>, label: 'Students' },
         { key: 'enrollments', icon: <Bell size={18}/>, label: `Enrollments (${enrollments.length})` },
         { key: 'sources', icon: <Upload size={18}/>, label: 'Sources' },
         { key: 'prompts', icon: <Settings size={18}/>, label: 'Prompts' },
@@ -467,6 +476,32 @@ export default function AdminDashboard() {
                                         </div>
                                         <div className="flex gap-3 mt-5"><button onClick={updateTeacher} className="px-6 py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 transition-colors">Save Changes</button><button onClick={() => setEditingTeacher(null)} className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">Cancel</button></div>
                                     </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {tab === 'students' && (
+                        <div>
+                            <h2 className="text-2xl font-bold mb-6">All Students</h2>
+                            {students.length === 0 ? <p className="text-slate-500">No students registered yet</p> : (
+                                <div className="space-y-3">
+                                    {students.map((s: any) => (
+                                        <div key={s.id} className={`flex items-center justify-between border rounded-xl p-4 ${s.is_active ? 'bg-white/5 border-white/10' : 'bg-red-950/20 border-red-500/20 opacity-70'}`}>
+                                            <div>
+                                                <p className="font-bold flex items-center gap-2">
+                                                    {s.full_name} 
+                                                    {!s.is_active && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">Disabled</span>}
+                                                </p>
+                                                <p className="text-sm text-slate-400">{s.email}</p>
+                                            </div>
+                                            <div>
+                                                <button onClick={() => toggleStudentActive(s.id)} className={`px-4 py-2 rounded-lg text-sm transition-colors ${s.is_active ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30' : 'bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30'}`}>
+                                                    {s.is_active ? 'Disable Account' : 'Enable Account'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>

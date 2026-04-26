@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
 import { BookOpen, Users, LogOut, CheckCircle, XCircle, Settings, Bell, RefreshCw, FileText, Pencil, X } from 'lucide-react';
 
-type Tab = 'pending' | 'enrollments' | 'prompts';
+type Tab = 'pending' | 'enrollments' | 'students' | 'prompts';
 
 export default function TeacherDashboard() {
     const { user, logout, authFetch, loading: authLoading } = useAuth();
@@ -13,6 +13,7 @@ export default function TeacherDashboard() {
     const [tab, setTab] = useState<Tab>('pending');
     const [pendingLessons, setPendingLessons] = useState<any[]>([]);
     const [enrollments, setEnrollments] = useState<any[]>([]);
+    const [students, setStudents] = useState<any[]>([]);
     const [prompts, setPrompts] = useState<any[]>([]);
     const [editingPrompts, setEditingPrompts] = useState<Record<string, string>>({});
     const [editingLesson, setEditingLesson] = useState<any>(null);
@@ -25,14 +26,16 @@ export default function TeacherDashboard() {
 
     const loadAll = async () => {
         try {
-            const [p, e, pr] = await Promise.all([
+            const [p, e, pr, st] = await Promise.all([
                 fetch(`${API_URL}/api/lessons/pending`).then(r => r.json()).catch(() => ({ data: [] })),
                 authFetch(`${API_URL}/api/enrollments/pending`).then(r => r.json()).catch(() => ({ data: [] })),
                 fetch(`${API_URL}/api/prompts`).then(r => r.json()).catch(() => ({ data: [] })),
+                authFetch(`${API_URL}/api/teacher/students`).then(r => r.json()).catch(() => ({ data: [] })),
             ]);
             setPendingLessons(p.data || []);
             setEnrollments(e.data || []);
             setPrompts(pr.data || []);
+            setStudents(st.data || []);
             const map: Record<string, string> = {};
             (pr.data || []).forEach((p: any) => { map[p.prompt_name] = p.prompt_text; });
             setEditingPrompts(map);
@@ -77,6 +80,12 @@ export default function TeacherDashboard() {
         loadAll();
     };
 
+    const kickStudent = async (studentId: number) => {
+        if (!confirm('Are you sure you want to kick this student out of your classes?')) return;
+        await authFetch(`${API_URL}/api/enrollments/student/${studentId}`, { method: 'DELETE' });
+        loadAll();
+    };
+
     const savePrompt = async (name: string) => {
         await authFetch(`${API_URL}/api/prompts`, { method: 'PUT', body: JSON.stringify({ prompt_name: name, prompt_text: editingPrompts[name] }) });
         alert(`Prompt "${name}" saved`);
@@ -87,6 +96,7 @@ export default function TeacherDashboard() {
     const tabs: { key: Tab; icon: React.ReactNode; label: string }[] = [
         { key: 'pending', icon: <FileText size={18}/>, label: `Pending Lessons (${pendingLessons.length})` },
         { key: 'enrollments', icon: <Bell size={18}/>, label: `Student Requests (${enrollments.length})` },
+        { key: 'students', icon: <Users size={18}/>, label: `My Students (${students.length})` },
         { key: 'prompts', icon: <Settings size={18}/>, label: 'Subject Prompts' },
     ];
 
@@ -182,6 +192,33 @@ export default function TeacherDashboard() {
                                             <div className="flex gap-2">
                                                 <button onClick={() => approveEnrollment(e.id)} className="px-4 py-2 bg-emerald-600 rounded-lg text-sm hover:bg-emerald-500">Approve</button>
                                                 <button onClick={() => denyEnrollment(e.id)} className="px-4 py-2 bg-red-600/50 rounded-lg text-sm hover:bg-red-600">Deny</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {tab === 'students' && (
+                        <div>
+                            <h2 className="text-2xl font-bold mb-6">My Enrolled Students</h2>
+                            {students.length === 0 ? <p className="text-slate-500">No students enrolled yet</p> : (
+                                <div className="space-y-3">
+                                    {students.map((s: any) => (
+                                        <div key={s.id} className={`flex items-center justify-between border rounded-xl p-4 ${s.is_active ? 'bg-white/5 border-white/10' : 'bg-red-950/20 border-red-500/20 opacity-70'}`}>
+                                            <div>
+                                                <p className="font-bold flex items-center gap-2">
+                                                    {s.full_name} 
+                                                    {!s.is_active && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">Disabled</span>}
+                                                </p>
+                                                <p className="text-sm text-slate-400">{s.email}</p>
+                                                <p className="text-xs text-blue-400 mt-1">Enrolled in: {s.enrolled_subjects || 'N/A'}</p>
+                                            </div>
+                                            <div>
+                                                <button onClick={() => kickStudent(s.id)} className="px-4 py-2 bg-red-600/20 text-red-400 rounded-lg text-sm hover:bg-red-600/30">
+                                                    Kick Out
+                                                </button>
                                             </div>
                                         </div>
                                     ))}

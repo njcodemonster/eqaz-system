@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
-import { BookOpen, Users, GraduationCap, Upload, Settings, LogOut, Plus, Trash2, UserPlus, Link2, Bell, CheckCircle, XCircle, FileText, RefreshCw, Pencil, X } from 'lucide-react';
+import { BookOpen, Users, GraduationCap, Upload, Settings, LogOut, Plus, Trash2, UserPlus, Link2, Bell, CheckCircle, XCircle, FileText, RefreshCw, Pencil, X, RotateCcw, Eye, EyeOff, Database } from 'lucide-react';
 
-type Tab = 'overview' | 'subjects' | 'teachers' | 'enrollments' | 'sources' | 'prompts';
+type Tab = 'overview' | 'lessons' | 'subjects' | 'teachers' | 'enrollments' | 'sources' | 'prompts';
 
 export default function AdminDashboard() {
     const { user, logout, authFetch, loading: authLoading } = useAuth();
@@ -18,7 +18,9 @@ export default function AdminDashboard() {
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [pendingLessons, setPendingLessons] = useState<any[]>([]);
     const [approvedLessons, setApprovedLessons] = useState<any[]>([]);
+    const [trashedLessons, setTrashedLessons] = useState<any[]>([]);
     const [sourceDocs, setSourceDocs] = useState<any[]>([]);
+    const [lessonView, setLessonView] = useState<'pending' | 'approved' | 'trashed'>('pending');
 
     // Forms
     const [newSubject, setNewSubject] = useState({ name_english: '', name_urdu: '', description: '' });
@@ -45,11 +47,13 @@ export default function AdminDashboard() {
                 fetch(`${API_URL}/api/lessons/pending`).then(r => r.json()).catch(() => ({ data: [] })),
                 fetch(`${API_URL}/api/lessons`).then(r => r.json()).catch(() => ({ data: [] })),
             ]);
+            const tr = await fetch(`${API_URL}/api/lessons/trashed`).then(r => r.json()).catch(() => ({ data: [] }));
             setSubjects(s.data || []);
             setTeachers(t.data || []);
             setEnrollments(e.data || []);
             setPendingLessons(p.data || []);
             setApprovedLessons(a.data || []);
+            setTrashedLessons(tr.data || []);
         } catch (err) {
             console.error("loadAll error:", err);
         }
@@ -138,10 +142,32 @@ export default function AdminDashboard() {
         loadAll();
     };
 
+    const trashLesson = async (id: number) => {
+        await fetch(`${API_URL}/api/lessons/${id}/trash`, { method: 'PATCH' });
+        loadAll();
+    };
+
+    const restoreLesson = async (id: number) => {
+        await fetch(`${API_URL}/api/lessons/${id}/restore`, { method: 'PATCH' });
+        loadAll();
+    };
+
+    const deleteLesson = async (id: number) => {
+        if (!confirm('Permanently delete this lesson?')) return;
+        await fetch(`${API_URL}/api/lessons/${id}`, { method: 'DELETE' });
+        loadAll();
+    };
+
+    const toggleLessonActive = async (id: number) => {
+        await fetch(`${API_URL}/api/lessons/${id}/toggle-active`, { method: 'PATCH' });
+        loadAll();
+    };
+
     if (authLoading || !user) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><RefreshCw className="animate-spin text-indigo-500" size={32}/></div>;
 
     const tabs: { key: Tab; icon: React.ReactNode; label: string }[] = [
         { key: 'overview', icon: <BookOpen size={18}/>, label: 'Overview' },
+        { key: 'lessons', icon: <Database size={18}/>, label: `Lessons (${pendingLessons.length + approvedLessons.length})` },
         { key: 'subjects', icon: <FileText size={18}/>, label: 'Subjects' },
         { key: 'teachers', icon: <Users size={18}/>, label: 'Teachers' },
         { key: 'enrollments', icon: <Bell size={18}/>, label: `Enrollments (${enrollments.length})` },
@@ -199,6 +225,90 @@ export default function AdminDashboard() {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {tab === 'lessons' && (
+                        <div>
+                            <h2 className="text-2xl font-bold mb-6">Lesson Management</h2>
+                            {/* Sub tabs */}
+                            <div className="flex gap-3 mb-6">
+                                {[
+                                    { key: 'pending' as const, label: `Pending (${pendingLessons.length})`, color: 'amber' },
+                                    { key: 'approved' as const, label: `Approved (${approvedLessons.length})`, color: 'emerald' },
+                                    { key: 'trashed' as const, label: `Trashed (${trashedLessons.length})`, color: 'red' },
+                                ].map(v => (
+                                    <button key={v.key} onClick={() => setLessonView(v.key)}
+                                        className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors ${lessonView === v.key ? `bg-${v.color}-600 text-white` : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>{v.label}</button>
+                                ))}
+                            </div>
+
+                            {/* Pending Lessons */}
+                            {lessonView === 'pending' && (
+                                <div className="space-y-3">
+                                    {pendingLessons.length === 0 ? <p className="text-slate-500 py-8 text-center">No pending lessons</p> : pendingLessons.map((l: any) => (
+                                        <div key={l.id} className="bg-white/5 border border-white/10 rounded-xl p-5">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1 mr-4">
+                                                    <p className="font-bold text-lg">{l.title_english}</p>
+                                                    <p className="text-slate-400 mt-1" dir="rtl">{l.title_urdu}</p>
+                                                    <p className="text-sm text-slate-500 mt-2">{l.objective?.substring(0, 200)}{l.objective?.length > 200 ? '...' : ''}</p>
+                                                    <p className="text-xs text-slate-600 mt-2">Source: {l.source_document || 'N/A'} | Level: {l.level || 'N/A'}</p>
+                                                </div>
+                                                <div className="flex gap-2 shrink-0">
+                                                    <button onClick={() => approveLessonClick(l.id)} className="px-4 py-2 bg-emerald-600 rounded-lg text-sm hover:bg-emerald-500 flex items-center gap-1 transition-colors"><CheckCircle size={14}/> Approve</button>
+                                                    <button onClick={() => trashLesson(l.id)} className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg text-sm hover:bg-red-500/30 flex items-center gap-1 transition-colors"><Trash2 size={14}/> Trash</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Approved Lessons */}
+                            {lessonView === 'approved' && (
+                                <div className="space-y-3">
+                                    {approvedLessons.length === 0 ? <p className="text-slate-500 py-8 text-center">No approved lessons</p> : approvedLessons.map((l: any) => (
+                                        <div key={l.id} className={`border rounded-xl p-5 transition-colors ${l.is_active === false ? 'bg-slate-800/50 border-white/5 opacity-60' : 'bg-white/5 border-white/10'}`}>
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1 mr-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-bold text-lg">{l.title_english}</p>
+                                                        {l.is_active === false && <span className="text-xs bg-slate-600/50 text-slate-400 px-2 py-0.5 rounded-full">Hidden</span>}
+                                                    </div>
+                                                    <p className="text-slate-400 mt-1" dir="rtl">{l.title_urdu}</p>
+                                                    <p className="text-sm text-slate-500 mt-2">{l.objective?.substring(0, 150)}{l.objective?.length > 150 ? '...' : ''}</p>
+                                                    <p className="text-xs text-slate-600 mt-2">Source: {l.source_document || 'N/A'} | Level: {l.level || 'N/A'}</p>
+                                                </div>
+                                                <div className="flex gap-2 shrink-0">
+                                                    <button onClick={() => toggleLessonActive(l.id)} title={l.is_active === false ? 'Show' : 'Hide'} className="p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors">{l.is_active === false ? <Eye size={14}/> : <EyeOff size={14}/>}</button>
+                                                    <button onClick={() => trashLesson(l.id)} className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"><Trash2 size={14}/></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Trashed Lessons */}
+                            {lessonView === 'trashed' && (
+                                <div className="space-y-3">
+                                    {trashedLessons.length === 0 ? <p className="text-slate-500 py-8 text-center">Trash is empty</p> : trashedLessons.map((l: any) => (
+                                        <div key={l.id} className="bg-red-950/20 border border-red-500/10 rounded-xl p-5">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1 mr-4">
+                                                    <p className="font-bold text-lg text-slate-400">{l.title_english}</p>
+                                                    <p className="text-slate-500 mt-1" dir="rtl">{l.title_urdu}</p>
+                                                </div>
+                                                <div className="flex gap-2 shrink-0">
+                                                    <button onClick={() => restoreLesson(l.id)} className="px-4 py-2 bg-emerald-600/20 text-emerald-400 rounded-lg text-sm hover:bg-emerald-600/30 flex items-center gap-1 transition-colors"><RotateCcw size={14}/> Restore</button>
+                                                    <button onClick={() => deleteLesson(l.id)} className="px-4 py-2 bg-red-600 rounded-lg text-sm hover:bg-red-500 flex items-center gap-1 transition-colors"><Trash2 size={14}/> Delete</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 

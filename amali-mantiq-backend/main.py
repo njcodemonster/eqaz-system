@@ -32,11 +32,21 @@ try:
             try:
                 conn.execute(text(f"ALTER TABLE lessons ADD COLUMN IF NOT EXISTS {col} BOOLEAN DEFAULT {default}"))
             except Exception:
-                pass  # Column likely already exists
-        try:
-            conn.execute(text("ALTER TABLE prompt_configs ADD COLUMN IF NOT EXISTS prompt_name VARCHAR DEFAULT 'extraction'"))
-        except Exception:
-            pass
+                pass
+        # RBAC migrations
+        rbac_migrations = [
+            "ALTER TABLE lessons ADD COLUMN IF NOT EXISTS subject_id INTEGER REFERENCES subjects(id)",
+            "ALTER TABLE lessons ADD COLUMN IF NOT EXISTS source_document_id INTEGER REFERENCES source_documents(id)",
+            "ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS subject_id INTEGER REFERENCES subjects(id)",
+            "ALTER TABLE prompt_configs ADD COLUMN IF NOT EXISTS prompt_name VARCHAR DEFAULT 'extraction'",
+            "ALTER TABLE prompt_configs ADD COLUMN IF NOT EXISTS subject_id INTEGER REFERENCES subjects(id)",
+            "ALTER TABLE prompt_configs ADD COLUMN IF NOT EXISTS inherit_global BOOLEAN DEFAULT true",
+        ]
+        for sql in rbac_migrations:
+            try:
+                conn.execute(text(sql))
+            except Exception:
+                pass
         conn.commit()
     print("[OK] Successfully connected to Supabase Database.")
     # Seed Super Admin account

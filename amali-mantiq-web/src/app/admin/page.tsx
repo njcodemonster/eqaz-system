@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
-import { BookOpen, Users, GraduationCap, Upload, Settings, LogOut, Plus, Trash2, UserPlus, Link2, Bell, CheckCircle, XCircle, FileText, RefreshCw } from 'lucide-react';
+import { BookOpen, Users, GraduationCap, Upload, Settings, LogOut, Plus, Trash2, UserPlus, Link2, Bell, CheckCircle, XCircle, FileText, RefreshCw, Pencil, X } from 'lucide-react';
 
 type Tab = 'overview' | 'subjects' | 'teachers' | 'enrollments' | 'sources' | 'prompts';
 
@@ -25,6 +25,10 @@ export default function AdminDashboard() {
     const [newTeacher, setNewTeacher] = useState({ email: '', password: '', full_name: '' });
     const [assignTeacher, setAssignTeacher] = useState({ teacher_id: '', subject_id: '' });
     const [uploadSubjectId, setUploadSubjectId] = useState('');
+
+    // Edit modals
+    const [editingSubject, setEditingSubject] = useState<any>(null);
+    const [editingTeacher, setEditingTeacher] = useState<any>(null);
 
     useEffect(() => {
         if (!authLoading && (!user || user.role !== 'super_admin')) router.replace('/login');
@@ -57,10 +61,41 @@ export default function AdminDashboard() {
         loadAll();
     };
 
+    const updateSubject = async () => {
+        if (!editingSubject) return;
+        await authFetch(`${API_URL}/api/subjects/${editingSubject.id}`, { method: 'PUT', body: JSON.stringify({ name_english: editingSubject.name_english, name_urdu: editingSubject.name_urdu, description: editingSubject.description }) });
+        setEditingSubject(null);
+        loadAll();
+    };
+
+    const deleteSubject = async (id: number) => {
+        if (!confirm('Delete this subject? All linked data will be affected.')) return;
+        await authFetch(`${API_URL}/api/subjects/${id}`, { method: 'DELETE' });
+        loadAll();
+    };
+
     const createTeacher = async () => {
         const res = await authFetch(`${API_URL}/api/users/teacher`, { method: 'POST', body: JSON.stringify(newTeacher) });
         if (res.ok) { setNewTeacher({ email: '', password: '', full_name: '' }); loadAll(); }
         else { const d = await res.json(); alert(d.detail); }
+    };
+
+    const updateTeacher = async () => {
+        if (!editingTeacher) return;
+        await authFetch(`${API_URL}/api/users/teacher/${editingTeacher.id}`, { method: 'PUT', body: JSON.stringify({ full_name: editingTeacher.full_name, email: editingTeacher.email }) });
+        setEditingTeacher(null);
+        loadAll();
+    };
+
+    const deleteTeacher = async (id: number) => {
+        if (!confirm('Delete this teacher? Their subject assignments will also be removed.')) return;
+        await authFetch(`${API_URL}/api/users/teacher/${id}`, { method: 'DELETE' });
+        loadAll();
+    };
+
+    const unassignSubject = async (teacherId: number, subjectId: number) => {
+        await authFetch(`${API_URL}/api/teacher-subjects`, { method: 'DELETE', body: JSON.stringify({ teacher_id: teacherId, subject_id: subjectId }) });
+        loadAll();
     };
 
     const assignSubject = async () => {
@@ -183,10 +218,28 @@ export default function AdminDashboard() {
                                 {subjects.map((s: any) => (
                                     <div key={s.id} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4">
                                         <div><p className="font-bold">{s.name_english}</p><p className="text-sm text-slate-400">{s.name_urdu} — {s.lesson_count} lessons</p></div>
-                                        <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full">ID: {s.id}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full">ID: {s.id}</span>
+                                            <button onClick={() => setEditingSubject({...s})} className="p-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors"><Pencil size={14}/></button>
+                                            <button onClick={() => deleteSubject(s.id)} className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"><Trash2 size={14}/></button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
+                            {/* Edit Subject Modal */}
+                            {editingSubject && (
+                                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setEditingSubject(null)}>
+                                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                                        <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-lg">Edit Subject</h3><button onClick={() => setEditingSubject(null)} className="text-slate-500 hover:text-white"><X size={20}/></button></div>
+                                        <div className="space-y-3">
+                                            <input value={editingSubject.name_english} onChange={e => setEditingSubject({...editingSubject, name_english: e.target.value})} placeholder="English Name" className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                            <input value={editingSubject.name_urdu} onChange={e => setEditingSubject({...editingSubject, name_urdu: e.target.value})} placeholder="اردو نام" dir="rtl" className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                            <input value={editingSubject.description} onChange={e => setEditingSubject({...editingSubject, description: e.target.value})} placeholder="Description" className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                        </div>
+                                        <div className="flex gap-3 mt-5"><button onClick={updateSubject} className="px-6 py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 transition-colors">Save Changes</button><button onClick={() => setEditingSubject(null)} className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">Cancel</button></div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -220,12 +273,38 @@ export default function AdminDashboard() {
                             <div className="space-y-3">
                                 {teachers.map((t: any) => (
                                     <div key={t.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
-                                        <p className="font-bold">{t.full_name}</p>
-                                        <p className="text-sm text-slate-400">{t.email}</p>
-                                        <div className="flex gap-2 mt-2">{t.subjects?.map((s: any) => <span key={s.id} className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full">{s.name}</span>)}</div>
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <p className="font-bold">{t.full_name}</p>
+                                                <p className="text-sm text-slate-400">{t.email}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => setEditingTeacher({...t})} className="p-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors"><Pencil size={14}/></button>
+                                                <button onClick={() => deleteTeacher(t.id)} className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"><Trash2 size={14}/></button>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mt-3">{t.subjects?.map((s: any) => (
+                                            <span key={s.id} className="inline-flex items-center gap-1 text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full">
+                                                {s.name}
+                                                <button onClick={() => unassignSubject(t.id, s.id)} className="ml-1 text-blue-400 hover:text-red-400 transition-colors"><X size={12}/></button>
+                                            </span>
+                                        ))}</div>
                                     </div>
                                 ))}
                             </div>
+                            {/* Edit Teacher Modal */}
+                            {editingTeacher && (
+                                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setEditingTeacher(null)}>
+                                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                                        <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-lg">Edit Teacher</h3><button onClick={() => setEditingTeacher(null)} className="text-slate-500 hover:text-white"><X size={20}/></button></div>
+                                        <div className="space-y-3">
+                                            <input value={editingTeacher.full_name} onChange={e => setEditingTeacher({...editingTeacher, full_name: e.target.value})} placeholder="Full Name" className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                            <input value={editingTeacher.email} onChange={e => setEditingTeacher({...editingTeacher, email: e.target.value})} placeholder="Email" className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                        </div>
+                                        <div className="flex gap-3 mt-5"><button onClick={updateTeacher} className="px-6 py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 transition-colors">Save Changes</button><button onClick={() => setEditingTeacher(null)} className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">Cancel</button></div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

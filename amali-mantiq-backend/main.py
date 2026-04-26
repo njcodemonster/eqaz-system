@@ -197,6 +197,18 @@ def delete_subject(subject_id: int, admin: models.User = Depends(require_role("s
     db.commit()
     return {"status": "success", "message": "Subject deleted"}
 
+@app.put("/api/subjects/{subject_id}")
+def update_subject(subject_id: int, req: SubjectCreate, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    subject.name_english = req.name_english
+    subject.name_urdu = req.name_urdu
+    subject.description = req.description
+    db.commit()
+    db.refresh(subject)
+    return {"status": "success", "data": {"id": subject.id, "name_english": subject.name_english, "name_urdu": subject.name_urdu, "description": subject.description}}
+
 # ============================================================
 # TEACHER MANAGEMENT (Super Admin only)
 # ============================================================
@@ -240,6 +252,45 @@ def assign_teacher_to_subject(req: TeacherSubjectAssign, admin: models.User = De
     db.add(assignment)
     db.commit()
     return {"status": "success", "message": "Teacher assigned to subject"}
+
+@app.delete("/api/teacher-subjects")
+def unassign_teacher_from_subject(req: TeacherSubjectAssign, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    assignment = db.query(models.TeacherSubject).filter(models.TeacherSubject.teacher_id == req.teacher_id, models.TeacherSubject.subject_id == req.subject_id).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    db.delete(assignment)
+    db.commit()
+    return {"status": "success", "message": "Teacher unassigned from subject"}
+
+class TeacherUpdate(BaseModel):
+    full_name: str
+    email: str
+
+@app.put("/api/users/teacher/{teacher_id}")
+def update_teacher(teacher_id: int, req: TeacherUpdate, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    teacher = db.query(models.User).filter(models.User.id == teacher_id, models.User.role == models.UserRole.teacher).first()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    if req.email != teacher.email:
+        dup = db.query(models.User).filter(models.User.email == req.email).first()
+        if dup:
+            raise HTTPException(status_code=400, detail="Email already taken")
+    teacher.full_name = req.full_name
+    teacher.email = req.email
+    db.commit()
+    db.refresh(teacher)
+    return {"status": "success", "data": {"id": teacher.id, "email": teacher.email, "full_name": teacher.full_name}}
+
+@app.delete("/api/users/teacher/{teacher_id}")
+def delete_teacher(teacher_id: int, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    teacher = db.query(models.User).filter(models.User.id == teacher_id, models.User.role == models.UserRole.teacher).first()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    # Remove subject assignments first
+    db.query(models.TeacherSubject).filter(models.TeacherSubject.teacher_id == teacher_id).delete()
+    db.delete(teacher)
+    db.commit()
+    return {"status": "success", "message": "Teacher deleted"}
 
 # ============================================================
 # ENROLLMENT ENDPOINTS

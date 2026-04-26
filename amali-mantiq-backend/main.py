@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional, List
 import os
 import time
+import datetime
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -11,8 +13,12 @@ import json
 
 # Import DB configurations
 import models
-from database import engine, get_db
+from database import engine, get_db, SessionLocal
 from sqlalchemy.orm import Session
+from auth import (
+    hash_password, verify_password, create_access_token,
+    get_current_user, require_role, seed_super_admin
+)
 
 load_dotenv()
 
@@ -33,6 +39,12 @@ try:
             pass
         conn.commit()
     print("[OK] Successfully connected to Supabase Database.")
+    # Seed Super Admin account
+    seed_db = SessionLocal()
+    try:
+        seed_super_admin(seed_db)
+    finally:
+        seed_db.close()
 except Exception as e:
     print("\n" + "="*50)
     print(f"[ERROR] DATABASE CONNECTION FAILED: {e}")
@@ -94,7 +106,241 @@ def check_status():
         "gemini_ready": gemini_initialized
     }
 
-# --- Database Endpoints (Supabase) ---
+# ============================================================
+# AUTH ENDPOINTS
+# ============================================================
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/signup")
+def signup(req: SignupRequest, db: Session = Depends(get_db)):
+    """Student self-registration."""
+    existing = db.query(models.User).filter(models.User.email == req.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = models.User(
+        email=req.email,
+        password_hash=hash_password(req.password),
+        full_name=req.full_name,
+        role=models.UserRole.student
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    token = create_access_token(user.id, user.email, user.role)
+    return {"status": "success", "token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role}}
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest, db: Session = Depends(get_db)):
+    """Login for all roles."""
+    user = db.query(models.User).filter(models.User.email == req.email).first()
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = create_access_token(user.id, user.email, user.role)
+    return {"status": "success", "token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role}}
+
+@app.get("/api/auth/me")
+def get_me(current_user: models.User = Depends(get_current_user)):
+    """Get current logged-in user info."""
+    return {"status": "success", "user": {"id": current_user.id, "email": current_user.email, "full_name": current_user.full_name, "role": current_user.role}}
+
+# ============================================================
+# SUBJECT ENDPOINTS (Super Admin only)
+# ============================================================
+
+class SubjectCreate(BaseModel):
+    name_english: str
+    name_urdu: str
+    description: str = ""
+
+@app.post("/api/subjects")
+def create_subject(req: SubjectCreate, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    subject = models.Subject(name_english=req.name_english, name_urdu=req.name_urdu, description=req.description)
+    db.add(subject)
+    db.commit()
+    db.refresh(subject)
+    return {"status": "success", "data": {"id": subject.id, "name_english": subject.name_english, "name_urdu": subject.name_urdu, "description": subject.description}}
+
+@app.get("/api/subjects")
+def get_subjects(db: Session = Depends(get_db)):
+    """Public: anyone can browse subject catalog."""
+    subjects = db.query(models.Subject).all()
+    result = []
+    for s in subjects:
+        lesson_count = db.query(models.Lesson).filter(models.Lesson.subject_id == s.id, models.Lesson.is_approved == True, models.Lesson.is_trashed == False).count()
+        result.append({"id": s.id, "name_english": s.name_english, "name_urdu": s.name_urdu, "description": s.description, "lesson_count": lesson_count})
+    return {"status": "success", "data": result}
+
+@app.delete("/api/subjects/{subject_id}")
+def delete_subject(subject_id: int, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    db.delete(subject)
+    db.commit()
+    return {"status": "success", "message": "Subject deleted"}
+
+# ============================================================
+# TEACHER MANAGEMENT (Super Admin only)
+# ============================================================
+
+class TeacherCreate(BaseModel):
+    email: str
+    password: str
+    full_name: str
+
+@app.post("/api/users/teacher")
+def create_teacher(req: TeacherCreate, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    existing = db.query(models.User).filter(models.User.email == req.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    teacher = models.User(email=req.email, password_hash=hash_password(req.password), full_name=req.full_name, role=models.UserRole.teacher)
+    db.add(teacher)
+    db.commit()
+    db.refresh(teacher)
+    return {"status": "success", "data": {"id": teacher.id, "email": teacher.email, "full_name": teacher.full_name, "role": teacher.role}}
+
+@app.get("/api/teachers")
+def list_teachers(admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    teachers = db.query(models.User).filter(models.User.role == models.UserRole.teacher).all()
+    result = []
+    for t in teachers:
+        subjects = db.query(models.TeacherSubject).filter(models.TeacherSubject.teacher_id == t.id).all()
+        subj_list = [{"id": ts.subject_id, "name": db.query(models.Subject).get(ts.subject_id).name_english} for ts in subjects if db.query(models.Subject).get(ts.subject_id)]
+        result.append({"id": t.id, "email": t.email, "full_name": t.full_name, "subjects": subj_list})
+    return {"status": "success", "data": result}
+
+class TeacherSubjectAssign(BaseModel):
+    teacher_id: int
+    subject_id: int
+
+@app.post("/api/teacher-subjects")
+def assign_teacher_to_subject(req: TeacherSubjectAssign, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    existing = db.query(models.TeacherSubject).filter(models.TeacherSubject.teacher_id == req.teacher_id, models.TeacherSubject.subject_id == req.subject_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Teacher already assigned to this subject")
+    assignment = models.TeacherSubject(teacher_id=req.teacher_id, subject_id=req.subject_id)
+    db.add(assignment)
+    db.commit()
+    return {"status": "success", "message": "Teacher assigned to subject"}
+
+# ============================================================
+# ENROLLMENT ENDPOINTS
+# ============================================================
+
+@app.post("/api/enrollments/request")
+def request_enrollment(payload: dict, student: models.User = Depends(require_role("student")), db: Session = Depends(get_db)):
+    subject_id = payload.get("subject_id")
+    existing = db.query(models.StudentEnrollment).filter(models.StudentEnrollment.student_id == student.id, models.StudentEnrollment.subject_id == subject_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Already {existing.status}")
+    enrollment = models.StudentEnrollment(student_id=student.id, subject_id=subject_id)
+    db.add(enrollment)
+    db.commit()
+    return {"status": "success", "message": "Enrollment request submitted"}
+
+@app.get("/api/enrollments/pending")
+def get_pending_enrollments(user: models.User = Depends(require_role("super_admin", "teacher")), db: Session = Depends(get_db)):
+    query = db.query(models.StudentEnrollment).filter(models.StudentEnrollment.status == "pending")
+    if user.role == "teacher":
+        teacher_subject_ids = [ts.subject_id for ts in db.query(models.TeacherSubject).filter(models.TeacherSubject.teacher_id == user.id).all()]
+        query = query.filter(models.StudentEnrollment.subject_id.in_(teacher_subject_ids))
+    enrollments = query.all()
+    result = []
+    for e in enrollments:
+        student = db.query(models.User).get(e.student_id)
+        subject = db.query(models.Subject).get(e.subject_id)
+        result.append({"id": e.id, "student_name": student.full_name if student else "?", "student_email": student.email if student else "?", "subject_name": subject.name_english if subject else "?", "subject_id": e.subject_id, "requested_at": str(e.requested_at)})
+    return {"status": "success", "data": result}
+
+@app.patch("/api/enrollments/{enrollment_id}/approve")
+def approve_enrollment(enrollment_id: int, user: models.User = Depends(require_role("super_admin", "teacher")), db: Session = Depends(get_db)):
+    enrollment = db.query(models.StudentEnrollment).filter(models.StudentEnrollment.id == enrollment_id).first()
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    enrollment.status = "approved"
+    enrollment.approved_by = user.id
+    enrollment.resolved_at = datetime.datetime.utcnow()
+    db.commit()
+    return {"status": "success", "message": "Student enrolled"}
+
+@app.patch("/api/enrollments/{enrollment_id}/deny")
+def deny_enrollment(enrollment_id: int, user: models.User = Depends(require_role("super_admin", "teacher")), db: Session = Depends(get_db)):
+    enrollment = db.query(models.StudentEnrollment).filter(models.StudentEnrollment.id == enrollment_id).first()
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    enrollment.status = "denied"
+    enrollment.approved_by = user.id
+    enrollment.resolved_at = datetime.datetime.utcnow()
+    db.commit()
+    return {"status": "success", "message": "Enrollment denied"}
+
+@app.patch("/api/enrollments/bulk-approve")
+def bulk_approve(payload: dict, admin: models.User = Depends(require_role("super_admin")), db: Session = Depends(get_db)):
+    ids = payload.get("ids", [])
+    count = 0
+    for eid in ids:
+        e = db.query(models.StudentEnrollment).filter(models.StudentEnrollment.id == eid, models.StudentEnrollment.status == "pending").first()
+        if e:
+            e.status = "approved"
+            e.approved_by = admin.id
+            e.resolved_at = datetime.datetime.utcnow()
+            count += 1
+    db.commit()
+    return {"status": "success", "message": f"Approved {count} enrollments"}
+
+@app.get("/api/enrollments/my")
+def my_enrollments(student: models.User = Depends(require_role("student")), db: Session = Depends(get_db)):
+    enrollments = db.query(models.StudentEnrollment).filter(models.StudentEnrollment.student_id == student.id).all()
+    result = []
+    for e in enrollments:
+        subject = db.query(models.Subject).get(e.subject_id)
+        result.append({"id": e.id, "subject_id": e.subject_id, "subject_name": subject.name_english if subject else "?", "subject_name_urdu": subject.name_urdu if subject else "?", "status": e.status})
+    return {"status": "success", "data": result}
+
+# ============================================================
+# PROGRESS TRACKING
+# ============================================================
+
+class ProgressSave(BaseModel):
+    lesson_id: int
+    quiz_score: int
+    quiz_total: int
+
+@app.post("/api/progress")
+def save_progress(req: ProgressSave, student: models.User = Depends(require_role("student")), db: Session = Depends(get_db)):
+    existing = db.query(models.StudentProgress).filter(models.StudentProgress.student_id == student.id, models.StudentProgress.lesson_id == req.lesson_id).first()
+    passed = req.quiz_score >= (req.quiz_total * 0.6)
+    if existing:
+        if req.quiz_score > existing.quiz_score:
+            existing.quiz_score = req.quiz_score
+            existing.quiz_total = req.quiz_total
+            existing.quiz_passed = passed
+            existing.completed = True
+            existing.completed_at = datetime.datetime.utcnow()
+    else:
+        progress = models.StudentProgress(student_id=student.id, lesson_id=req.lesson_id, quiz_score=req.quiz_score, quiz_total=req.quiz_total, quiz_passed=passed, completed=True)
+        db.add(progress)
+    db.commit()
+    return {"status": "success", "passed": passed, "score": req.quiz_score, "total": req.quiz_total}
+
+@app.get("/api/progress/me")
+def my_progress(student: models.User = Depends(require_role("student")), db: Session = Depends(get_db)):
+    progress = db.query(models.StudentProgress).filter(models.StudentProgress.student_id == student.id).all()
+    result = []
+    for p in progress:
+        lesson = db.query(models.Lesson).get(p.lesson_id)
+        result.append({"lesson_id": p.lesson_id, "lesson_title": lesson.title_english if lesson else "?", "quiz_score": p.quiz_score, "quiz_total": p.quiz_total, "quiz_passed": p.quiz_passed, "completed_at": str(p.completed_at)})
+    return {"status": "success", "data": result}
+
+# --- Existing Database Endpoints (Supabase) ---
 
 @app.post("/api/lessons/approve")
 def approve_and_sync_lesson(payload: dict, db: Session = Depends(get_db)):

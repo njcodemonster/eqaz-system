@@ -7,3 +7,6 @@ pydantic
 python-dotenv
 python-multipart
 PyMuPDF
+passlib[bcrypt]
+PyJWT
+bcrypt

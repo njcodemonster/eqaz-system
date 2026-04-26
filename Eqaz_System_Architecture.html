@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eqaz System — Architecture Blueprint</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #6366f1;
+            --red: #ef4444;
+            --green: #22c55e;
+            --blue: #3b82f6;
+            --amber: #f59e0b;
+            --purple: #a855f7;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            padding: 40px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        @media print {
+            body { background: white; color: #1e293b; padding: 20px; }
+            .card { background: #f8fafc !important; border-color: #e2e8f0 !important; }
+            .section-title { color: #1e293b !important; }
+            h1, h2, h3 { color: #0f172a !important; }
+            .badge { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .page-break { page-break-before: always; }
+        }
+
+        .header {
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e293b 100%);
+            border-radius: 24px;
+            margin-bottom: 48px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .header h1 {
+            font-size: 42px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .header .subtitle {
+            font-size: 18px;
+            color: #94a3b8;
+            font-weight: 300;
+        }
+
+        .header .version {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 6px 16px;
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 100px;
+            font-size: 13px;
+            color: #a5b4fc;
+            font-weight: 500;
+        }
+
+        .section {
+            margin-bottom: 48px;
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title .num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: var(--accent);
+            color: white;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .card h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #a5b4fc;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 24px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+
+        th {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            text-align: left;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-red { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-blue { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-green { background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .badge-purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
+
+        .role-card {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .role-box {
+            flex: 1;
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        .role-box h4 { font-size: 18px; margin-bottom: 8px; }
+        .role-box p { font-size: 13px; opacity: 0.8; }
+
+        .role-admin { background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05)); border: 1px solid rgba(239,68,68,0.3); }
+        .role-teacher { background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05)); border: 1px solid rgba(59,130,246,0.3); }
+        .role-student { background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05)); border: 1px solid rgba(34,197,94,0.3); }
+
+        .check { color: #22c55e; }
+        .cross { color: #ef4444; }
+
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .flow-num {
+            width: 36px;
+            height: 36px;
+            background: var(--accent);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .flow-content h4 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+        .flow-content p { font-size: 14px; color: var(--muted); }
+
+        .note {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        .note-info { background: rgba(59,130,246,0.1); border-left: 4px solid var(--blue); }
+        .note-warn { background: rgba(245,158,11,0.1); border-left: 4px solid var(--amber); }
+        .note-purple { background: rgba(168,85,247,0.1); border-left: 4px solid var(--purple); }
+
+        .footer {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+            font-size: 13px;
+            border-top: 1px solid var(--border);
+            margin-top: 48px;
+        }
+
+        .urdu { font-family: 'Noto Nastaliq Urdu', serif; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Eqaz System</h1>
+    <div class="subtitle">System Architecture & Access Control Blueprint</div>
+    <div class="version">Version 2.0 — April 2026</div>
+</div>
+
+<!-- SECTION 1 -->
+<div class="section">
+    <h2 class="section-title"><span class="num">1</span> User Roles & Hierarchy</h2>
+
+    <div class="role-card">
+        <div class="role-box role-admin">
+            <h4>🔑 Super Admin</h4>
+            <p>Single account. Full system control. Creates teachers, subjects, uploads sources, manages global prompts.</p>
+        </div>
+        <div class="role-box role-teacher">
+            <h4>👨‍🏫 Teacher</h4>
+            <p>Created by Super Admin. Reviews lessons, edits prompts, approves student enrollment for assigned subjects.</p>
+        </div>
+        <div class="role-box role-student">
+            <h4>🎓 Student</h4>
+            <p>Self sign-up. Browses catalog, requests enrollment, studies lessons, takes quizzes, tracks progress.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Control Flow</h3>
+        <pre class="mermaid">
+graph LR
+    SA["🔑 Super Admin"] -->|"Creates"| T["👨‍🏫 Teacher"]
+    SA -->|"Assigns to Subject"| T
+    T -->|"Approves / Denies"| S["🎓 Student"]
+    SA -->|"Can Also Approve"| S
+        </pre>
+    </div>
+</div>
+
+<!-- SECTION 2 -->
+<div class="section page-break">
+    <h2 class="section-title"><span class="num">2</span> Access Control Matrix</h2>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>🔑 Super Admin</th>
+                    <th>👨‍🏫 Teacher</th>
+                    <th>🎓 Student</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Create Subject</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+                <tr><td>Upload Source Document</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+                <tr><td>Add Teacher Account</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+                <tr><td>Assign Teacher → Subject</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+                <tr><td>Edit Global Prompts</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+                <tr><td>Edit Subject Prompts</td><td class="check">✅</td><td class="check">✅ <small>(own subjects)</small></td><td class="cross">❌</td></tr>
+                <tr><td>Review / Approve Lessons</td><td class="check">✅</td><td class="check">✅ <small>(own subjects)</small></td><td class="cross">❌</td></tr>
+                <tr><td>Approve Student Enrollment</td><td class="check">✅</td><td class="check">✅ <small>(own subjects)</small></td><td class="cross">❌</td></tr>
+                <tr><td>Bulk Approve Students</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+                <tr><td>View All Subjects (catalog)</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td></tr>
+                <tr><td>Access Lesson Content</td><td class="check">✅</td><td class="check">✅ <small>(own subjects)</small></td><td class="check">✅ <small>(enrolled only)</small></td></tr>
+                <tr><td>Request Subject Enrollment</td><td class="cross">❌</td><td class="cross">❌</td><td class="check">✅</td></tr>
+                <tr><td>Take Quizzes</td><td class="cross">❌</td><td class="cross">❌</td><td class="check">✅</td></tr>
+                <tr><td>View Own Progress</td><td class="cross">❌</td><td class="cross">❌</td><td class="check">✅</td></tr>
+                <tr><td>Self Sign-Up</td><td class="cross">❌</td><td class="cross">❌</td><td class="check">✅</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SECTION 3 -->
+<div class="section page-break">
+    <h2 class="section-title"><span class="num">3</span> Complete System Flow</h2>
+
+    <div class="card">
+        <h3>🔧 Setup Phase — Super Admin</h3>
+        <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-content"><h4>Create Subject</h4><p>e.g. Mantiq (Logic), Nahw (Grammar), Sarf (Morphology)</p></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-content"><h4>Set Global Prompts</h4><p>Extraction prompt + tutor prompt — applies to all subjects by default</p></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-content"><h4>Upload Source PDF</h4><p>Linked to a specific subject. AI extracts lessons automatically via Gemini Vision.</p></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">4</div>
+            <div class="flow-content"><h4>Add Teacher → Assign to Subject</h4><p>Teacher gets access to review lessons and manage enrollment for that subject.</p></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>👨‍🏫 Teacher Phase</h3>
+        <div class="flow-step">
+            <div class="flow-num">5</div>
+            <div class="flow-content"><h4>Review AI-Generated Lessons</h4><p>Approve (→ goes live), Trash (→ deleted), or Edit before approving.</p></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">6</div>
+            <div class="flow-content"><h4>Customize Subject Prompts</h4><p>Override global prompts for their subject, or inherit the defaults.</p></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">7</div>
+            <div class="flow-content"><h4>Handle Enrollment Requests</h4><p>Approve or deny students requesting access to their subject.</p></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>🎓 Student Phase</h3>
+        <div class="flow-step">
+            <div class="flow-num">8</div>
+            <div class="flow-content"><h4>Sign Up & Login</h4><p>Email + password registration. Immediate access to catalog.</p></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">9</div>
+            <div class="flow-content"><h4>Browse Subjects → Request Enrollment</h4><p>Student sees ALL subjects. Clicks "Register" → notification goes to teacher + super admin.</p></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">10</div>
+            <div class="flow-content"><h4>Study → Quiz → Track Progress</h4><p>Once enrolled: read theory, take AI-generated quizzes, chat with AI tutor. All progress saved.</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 4 -->
+<div class="section page-break">
+    <h2 class="section-title"><span class="num">4</span> Student Enrollment Workflow</h2>
+
+    <div class="card">
+        <pre class="mermaid">
+sequenceDiagram
+    participant S as 🎓 Student
+    participant API as Backend
+    participant T as 👨‍🏫 Teacher
+    participant SA as 🔑 Super Admin
+
+    S->>API: Browse all subjects
+    API->>S: Subject list (with enrollment status)
+
+    S->>API: Request enrollment (Mantiq)
+    API->>API: Save request (status: pending)
+    API-->>T: 🔔 New enrollment request
+    API-->>SA: 🔔 New enrollment request
+
+    Note over T,SA: Either can approve/deny
+
+    T->>API: Approve student
+    API-->>S: ✅ You are enrolled!
+
+    S->>API: Access Mantiq lessons
+    API->>API: Check enrollment → approved
+    API->>S: Return lesson content
+        </pre>
+    </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="section">
+    <h2 class="section-title"><span class="num">5</span> Prompt Inheritance System</h2>
+
+    <div class="card">
+        <pre class="mermaid">
+flowchart TB
+    G["🌐 Global Prompts\n(Set by Super Admin)"]
+
+    G -->|"Inherit ✅"| P1["منطق Prompts\n(uses global as-is)"]
+    G -->|"Override ✏️"| P2["نحو Prompts\n(teacher customized)"]
+    G -->|"Inherit ✅"| P3["صرف Prompts\n(uses global as-is)"]
+
+    style G fill:#7c3aed,stroke:#5b21b6,color:#fff
+    style P1 fill:#e0e7ff,stroke:#6366f1
+    style P2 fill:#fef3c7,stroke:#f59e0b
+    style P3 fill:#e0e7ff,stroke:#6366f1
+        </pre>
+
+        <div class="note note-purple">
+            <strong>How it works:</strong> Each subject has its own extraction & tutor prompts. By default, they inherit the global prompt. Teachers can toggle inheritance OFF and write custom prompts for their specific subject.
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 6 -->
+<div class="section page-break">
+    <h2 class="section-title"><span class="num">6</span> Student Progress Dashboard</h2>
+
+    <div class="card">
+        <h3>Example: Ahmad Khan's Profile</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Lessons Completed</th>
+                    <th>Quizzes Passed</th>
+                    <th>Overall Progress</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="urdu">منطق</span> (Mantiq)</td>
+                    <td><span class="badge badge-green">✅ Enrolled</span></td>
+                    <td>3 / 11</td>
+                    <td>2 / 3</td>
+                    <td>27%</td>
+                </tr>
+                <tr>
+                    <td><span class="urdu">نحو</span> (Nahw)</td>
+                    <td><span class="badge badge-green">✅ Enrolled</span></td>
+                    <td>1 / 8</td>
+                    <td>1 / 1</td>
+                    <td>12%</td>
+                </tr>
+                <tr>
+                    <td><span class="urdu">صرف</span> (Sarf)</td>
+                    <td><span class="badge badge-purple">⏳ Pending Approval</span></td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>🔒</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SECTION 7 -->
+<div class="section">
+    <h2 class="section-title"><span class="num">7</span> Dashboard Routes</h2>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>URL</th>
+                    <th>Who</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>/login</code></td><td>Everyone</td><td>Sign in</td></tr>
+                <tr><td><code>/signup</code></td><td>New students</td><td>Self-registration</td></tr>
+                <tr><td><code>/student</code></td><td><span class="badge badge-green">Student</span></td><td>Subject catalog + enrolled lessons</td></tr>
+                <tr><td><code>/student/profile</code></td><td><span class="badge badge-green">Student</span></td><td>Progress dashboard</td></tr>
+                <tr><td><code>/teacher</code></td><td><span class="badge badge-blue">Teacher</span></td><td>Pending reviews + enrollment requests</td></tr>
+                <tr><td><code>/teacher/prompts</code></td><td><span class="badge badge-blue">Teacher</span></td><td>Subject prompt editor</td></tr>
+                <tr><td><code>/admin</code></td><td><span class="badge badge-red">Super Admin</span></td><td>Full system overview</td></tr>
+                <tr><td><code>/admin/subjects</code></td><td><span class="badge badge-red">Super Admin</span></td><td>Create/manage subjects</td></tr>
+                <tr><td><code>/admin/sources</code></td><td><span class="badge badge-red">Super Admin</span></td><td>Upload PDFs per subject</td></tr>
+                <tr><td><code>/admin/teachers</code></td><td><span class="badge badge-red">Super Admin</span></td><td>Add/manage teacher accounts</td></tr>
+                <tr><td><code>/admin/prompts</code></td><td><span class="badge badge-red">Super Admin</span></td><td>Global prompt editor</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SECTION 8 -->
+<div class="section">
+    <h2 class="section-title"><span class="num">8</span> Data Entity Map</h2>
+
+    <div class="card">
+        <pre class="mermaid">
+erDiagram
+    USERS {
+        int id PK
+        string email
+        string password_hash
+        string full_name
+        enum role
+    }
+    SUBJECTS {
+        int id PK
+        string name_english
+        string name_urdu
+    }
+    TEACHER_SUBJECTS {
+        int teacher_id FK
+        int subject_id FK
+    }
+    STUDENT_ENROLLMENTS {
+        int student_id FK
+        int subject_id FK
+        enum status
+    }
+    SOURCE_DOCUMENTS {
+        int id PK
+        int subject_id FK
+        string filename
+    }
+    LESSONS {
+        int id PK
+        int subject_id FK
+        string title
+        bool is_approved
+    }
+    STUDENT_PROGRESS {
+        int student_id FK
+        int lesson_id FK
+        int quiz_score
+        bool passed
+    }
+    PROMPT_CONFIGS {
+        int id PK
+        int subject_id FK
+        bool inherit_global
+    }
+
+    USERS ||--o{ TEACHER_SUBJECTS : "teaches"
+    SUBJECTS ||--o{ TEACHER_SUBJECTS : "taught by"
+    USERS ||--o{ STUDENT_ENROLLMENTS : "enrolls"
+    SUBJECTS ||--o{ STUDENT_ENROLLMENTS : "enrollment"
+    SUBJECTS ||--o{ SOURCE_DOCUMENTS : "contains"
+    SUBJECTS ||--o{ LESSONS : "has"
+    USERS ||--o{ STUDENT_PROGRESS : "tracks"
+    LESSONS ||--o{ STUDENT_PROGRESS : "progress"
+    SUBJECTS ||--o{ PROMPT_CONFIGS : "prompts"
+        </pre>
+    </div>
+</div>
+
+<div class="footer">
+    <p><strong>Eqaz System</strong> — Dars-e-Nizami Digital Learning Platform</p>
+    <p>Architecture Document v2.0 · April 2026 · 7C Tech</p>
+</div>
+
+<script>
+    mermaid.initialize({ 
+        startOnLoad: true, 
+        theme: 'dark',
+        themeVariables: {
+            primaryColor: '#4f46e5',
+            primaryTextColor: '#e2e8f0',
+            lineColor: '#6366f1',
+            secondaryColor: '#1e293b',
+            tertiaryColor: '#334155'
+        }
+    });
+</script>
+</body>
+</html>

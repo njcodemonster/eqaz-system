@@ -42,14 +42,18 @@ export default function StudentPortal() {
     useEffect(() => { if (user?.role === 'student') loadCatalog(); }, [user]);
 
     const loadCatalog = async () => {
-        const [s, e, p] = await Promise.all([
-            fetch(`${API_URL}/api/subjects`).then(r => r.json()),
-            authFetch(`${API_URL}/api/enrollments/my`).then(r => r.json()),
-            authFetch(`${API_URL}/api/progress/me`).then(r => r.json()),
-        ]);
-        setSubjects(s.data || []);
-        setEnrollments(e.data || []);
-        setProgress(p.data || []);
+        try {
+            const [s, e, p] = await Promise.all([
+                fetch(`${API_URL}/api/subjects`).then(r => r.json()).catch(() => ({ data: [] })),
+                authFetch(`${API_URL}/api/enrollments/my`).then(r => r.json()).catch(() => ({ data: [] })),
+                authFetch(`${API_URL}/api/progress/me`).then(r => r.json()).catch(() => ({ data: [] })),
+            ]);
+            setSubjects(s.data || []);
+            setEnrollments(e.data || []);
+            setProgress(p.data || []);
+        } catch (err) {
+            console.error("loadCatalog error:", err);
+        }
     };
 
     const requestEnrollment = async (subjectId: number) => {

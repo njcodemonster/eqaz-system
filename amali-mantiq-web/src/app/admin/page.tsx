@@ -33,18 +33,22 @@ export default function AdminDashboard() {
     useEffect(() => { if (user?.role === 'super_admin') loadAll(); }, [user]);
 
     const loadAll = async () => {
-        const [s, t, e, p, a] = await Promise.all([
-            fetch(`${API_URL}/api/subjects`).then(r => r.json()),
-            authFetch(`${API_URL}/api/teachers`).then(r => r.json()),
-            authFetch(`${API_URL}/api/enrollments/pending`).then(r => r.json()),
-            fetch(`${API_URL}/api/lessons/pending`).then(r => r.json()),
-            fetch(`${API_URL}/api/lessons`).then(r => r.json()),
-        ]);
-        setSubjects(s.data || []);
-        setTeachers(t.data || []);
-        setEnrollments(e.data || []);
-        setPendingLessons(p.data || []);
-        setApprovedLessons(a.data || []);
+        try {
+            const [s, t, e, p, a] = await Promise.all([
+                fetch(`${API_URL}/api/subjects`).then(r => r.json()).catch(() => ({ data: [] })),
+                authFetch(`${API_URL}/api/teachers`).then(r => r.json()).catch(() => ({ data: [] })),
+                authFetch(`${API_URL}/api/enrollments/pending`).then(r => r.json()).catch(() => ({ data: [] })),
+                fetch(`${API_URL}/api/lessons/pending`).then(r => r.json()).catch(() => ({ data: [] })),
+                fetch(`${API_URL}/api/lessons`).then(r => r.json()).catch(() => ({ data: [] })),
+            ]);
+            setSubjects(s.data || []);
+            setTeachers(t.data || []);
+            setEnrollments(e.data || []);
+            setPendingLessons(p.data || []);
+            setApprovedLessons(a.data || []);
+        } catch (err) {
+            console.error("loadAll error:", err);
+        }
     };
 
     const createSubject = async () => {

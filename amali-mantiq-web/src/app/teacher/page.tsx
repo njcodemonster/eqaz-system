@@ -23,17 +23,21 @@ export default function TeacherDashboard() {
     useEffect(() => { if (user?.role === 'teacher') loadAll(); }, [user]);
 
     const loadAll = async () => {
-        const [p, e, pr] = await Promise.all([
-            fetch(`${API_URL}/api/lessons/pending`).then(r => r.json()),
-            authFetch(`${API_URL}/api/enrollments/pending`).then(r => r.json()),
-            fetch(`${API_URL}/api/prompts`).then(r => r.json()),
-        ]);
-        setPendingLessons(p.data || []);
-        setEnrollments(e.data || []);
-        setPrompts(pr.data || []);
-        const map: Record<string, string> = {};
-        (pr.data || []).forEach((p: any) => { map[p.prompt_name] = p.prompt_text; });
-        setEditingPrompts(map);
+        try {
+            const [p, e, pr] = await Promise.all([
+                fetch(`${API_URL}/api/lessons/pending`).then(r => r.json()).catch(() => ({ data: [] })),
+                authFetch(`${API_URL}/api/enrollments/pending`).then(r => r.json()).catch(() => ({ data: [] })),
+                fetch(`${API_URL}/api/prompts`).then(r => r.json()).catch(() => ({ data: [] })),
+            ]);
+            setPendingLessons(p.data || []);
+            setEnrollments(e.data || []);
+            setPrompts(pr.data || []);
+            const map: Record<string, string> = {};
+            (pr.data || []).forEach((p: any) => { map[p.prompt_name] = p.prompt_text; });
+            setEditingPrompts(map);
+        } catch (err) {
+            console.error("loadAll error:", err);
+        }
     };
 
     const approveLessonClick = async (id: number) => {

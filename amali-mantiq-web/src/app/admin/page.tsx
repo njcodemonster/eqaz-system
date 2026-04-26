@@ -31,6 +31,7 @@ export default function AdminDashboard() {
     // Edit modals
     const [editingSubject, setEditingSubject] = useState<any>(null);
     const [editingTeacher, setEditingTeacher] = useState<any>(null);
+    const [editingLesson, setEditingLesson] = useState<any>(null);
 
     useEffect(() => {
         if (!authLoading && (!user || user.role !== 'super_admin')) router.replace('/login');
@@ -163,6 +164,23 @@ export default function AdminDashboard() {
         loadAll();
     };
 
+    const updateLesson = async () => {
+        if (!editingLesson) return;
+        await fetch(`${API_URL}/api/lessons/${editingLesson.id}`, { 
+            method: 'PUT', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                title_english: editingLesson.title_english, 
+                title_urdu: editingLesson.title_urdu, 
+                objective: editingLesson.objective,
+                definition_classic: editingLesson.definition_classic,
+                definition_modern: editingLesson.definition_modern
+            }) 
+        });
+        setEditingLesson(null);
+        loadAll();
+    };
+
     if (authLoading || !user) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><RefreshCw className="animate-spin text-indigo-500" size={32}/></div>;
 
     const tabs: { key: Tab; icon: React.ReactNode; label: string }[] = [
@@ -256,7 +274,8 @@ export default function AdminDashboard() {
                                                     <p className="text-xs text-slate-600 mt-2">Source: {l.source_document || 'N/A'} | Level: {l.level || 'N/A'}</p>
                                                 </div>
                                                 <div className="flex gap-2 shrink-0">
-                                                    <button onClick={() => approveLessonClick(l.id)} className="px-4 py-2 bg-emerald-600 rounded-lg text-sm hover:bg-emerald-500 flex items-center gap-1 transition-colors"><CheckCircle size={14}/> Approve</button>
+                                                    <button onClick={() => setEditingLesson({...l})} className="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg text-sm hover:bg-amber-500/30 flex items-center gap-1"><Pencil size={14}/> Edit</button>
+                                                    <button onClick={() => approveLessonClick(l.id)} className="px-4 py-2 bg-emerald-600 rounded-lg text-sm hover:bg-emerald-500 flex items-center gap-1"><CheckCircle size={14}/> Approve</button>
                                                     <button onClick={() => trashLesson(l.id)} className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg text-sm hover:bg-red-500/30 flex items-center gap-1 transition-colors"><Trash2 size={14}/> Trash</button>
                                                 </div>
                                             </div>
@@ -281,6 +300,7 @@ export default function AdminDashboard() {
                                                     <p className="text-xs text-slate-600 mt-2">Source: {l.source_document || 'N/A'} | Level: {l.level || 'N/A'}</p>
                                                 </div>
                                                 <div className="flex gap-2 shrink-0">
+                                                    <button onClick={() => setEditingLesson({...l})} className="p-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors"><Pencil size={14}/></button>
                                                     <button onClick={() => toggleLessonActive(l.id)} title={l.is_active === false ? 'Show' : 'Hide'} className="p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors">{l.is_active === false ? <Eye size={14}/> : <EyeOff size={14}/>}</button>
                                                     <button onClick={() => trashLesson(l.id)} className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"><Trash2 size={14}/></button>
                                                 </div>
@@ -307,6 +327,40 @@ export default function AdminDashboard() {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+
+                            {/* Edit Lesson Modal */}
+                            {editingLesson && (
+                                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setEditingLesson(null)}>
+                                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                        <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-lg">Edit Lesson</h3><button onClick={() => setEditingLesson(null)} className="text-slate-500 hover:text-white"><X size={20}/></button></div>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-xs text-slate-400 mb-1">English Title</label>
+                                                <input value={editingLesson.title_english} onChange={e => setEditingLesson({...editingLesson, title_english: e.target.value})} className="w-full px-4 py-2 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-slate-400 mb-1">Urdu Title</label>
+                                                <input value={editingLesson.title_urdu} onChange={e => setEditingLesson({...editingLesson, title_urdu: e.target.value})} dir="rtl" className="w-full px-4 py-2 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-slate-400 mb-1">Objective</label>
+                                                <textarea value={editingLesson.objective} onChange={e => setEditingLesson({...editingLesson, objective: e.target.value})} className="w-full h-24 px-4 py-2 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs text-slate-400 mb-1">Classic Definition</label>
+                                                    <textarea value={editingLesson.definition_classic} onChange={e => setEditingLesson({...editingLesson, definition_classic: e.target.value})} dir="rtl" className="w-full h-32 px-4 py-2 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-slate-400 mb-1">Modern Definition</label>
+                                                    <textarea value={editingLesson.definition_modern} onChange={e => setEditingLesson({...editingLesson, definition_modern: e.target.value})} className="w-full h-32 px-4 py-2 bg-black/30 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"/>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3 mt-6"><button onClick={updateLesson} className="px-6 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors">Save Changes</button><button onClick={() => setEditingLesson(null)} className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">Cancel</button></div>
+                                    </div>
                                 </div>
                             )}
                         </div>

@@ -45,7 +45,7 @@ export default function LoginPage() {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-4">
                         <BookOpen size={32} className="text-white" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white">Eqaz System</h1>
+                    <h1 className="text-3xl font-bold text-white">Learning System</h1>
                     <p className="text-slate-400 mt-2">Dars-e-Nizami Digital Platform</p>
                 </div>
 

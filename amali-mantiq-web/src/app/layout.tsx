@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Eqaz System — Dars-e-Nizami Digital Platform",
+  title: "Learning System — Dars-e-Nizami Digital Platform",
   description: "AI-powered Islamic studies learning platform",
 };
 

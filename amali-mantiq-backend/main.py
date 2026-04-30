@@ -794,8 +794,8 @@ def process_pdf_background(pdf_bytes: bytes, filename: str, source_doc_id: int):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         total_pages = len(doc)
         
-        # Process pages in batches of 3 to stay within token limits
-        BATCH_SIZE = 3
+        # Process pages in batches of 1 to stay within token limits
+        BATCH_SIZE = 1
         page_batches = [list(range(i, min(i + BATCH_SIZE, total_pages))) for i in range(0, total_pages, BATCH_SIZE)]
         
         print(f"[WORKER] PDF '{filename}' has {total_pages} pages. Processing in {len(page_batches)} batches of {BATCH_SIZE}...")
@@ -848,67 +848,52 @@ If there are no distinct lessons on these pages, return an empty array [].
 Be thorough - extract every distinct topic you can identify."""
             contents.append(prompt_text)
             
-            try:
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                    ),
-                )
-                
-                chunked_data = json.loads(response.text)
-                if isinstance(chunked_data, list):
-                    for l_data in chunked_data:
-                        draft = models.Lesson(
-                            title_english=l_data.get("title_english", "Draft"),
-                            title_urdu=l_data.get("title_urdu", "مسودہ"),
-                            objective=l_data.get("objective", ""),
-                            definition_classic=l_data.get("definition_classic", ""),
-                            definition_modern=l_data.get("definition_modern", ""),
-                            source_document=filename,
-                            is_approved=False
-                        )
-                        db.add(draft)
-                        total_drafts += 1
-                    db.commit()
-                    print(f"[WORKER] Batch {batch_idx+1} extracted {len(chunked_data)} lessons.")
-            except Exception as chunk_err:
-                err_str = str(chunk_err)
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    print(f"[WORKER] Batch {batch_idx+1} rate limited. Waiting 15s and retrying...")
-                    time.sleep(15)
-                    try:
-                        response = client.models.generate_content(
-                            model="gemini-2.0-flash",
-                            contents=contents,
-                            config=types.GenerateContentConfig(
-                                response_mime_type="application/json",
-                            ),
-                        )
-                        chunked_data = json.loads(response.text)
-                        if isinstance(chunked_data, list):
-                            for l_data in chunked_data:
-                                draft = models.Lesson(
-                                    title_english=l_data.get("title_english", "Draft"),
-                                    title_urdu=l_data.get("title_urdu", "مسودہ"),
-                                    objective=l_data.get("objective", ""),
-                                    definition_classic=l_data.get("definition_classic", ""),
-                                    definition_modern=l_data.get("definition_modern", ""),
-                                    source_document=filename,
-                                    is_approved=False
-                                )
-                                db.add(draft)
-                                total_drafts += 1
-                            db.commit()
-                            print(f"[WORKER] Batch {batch_idx+1} RETRY extracted {len(chunked_data)} lessons.")
-                    except Exception as retry_err:
-                        print(f"[WORKER] Batch {batch_idx+1} retry also failed: {retry_err}")
-                else:
-                    print(f"[WORKER] Batch {batch_idx+1} failed: {chunk_err}")
+            max_retries = 3
+            retry_delays = [15, 30, 60]
+
+            for attempt in range(max_retries + 1):
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-2.0-flash",
+                        contents=contents,
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                        ),
+                    )
+
+                    chunked_data = json.loads(response.text)
+                    if isinstance(chunked_data, list):
+                        for l_data in chunked_data:
+                            draft = models.Lesson(
+                                title_english=l_data.get("title_english", "Draft"),
+                                title_urdu=l_data.get("title_urdu", "مسودہ"),
+                                objective=l_data.get("objective", ""),
+                                definition_classic=l_data.get("definition_classic", ""),
+                                definition_modern=l_data.get("definition_modern", ""),
+                                source_document=filename,
+                                is_approved=False
+                            )
+                            db.add(draft)
+                            total_drafts += 1
+                        db.commit()
+                        print(f"[WORKER] Batch {batch_idx+1} extracted {len(chunked_data)} lessons.")
+                    break  # Success, exit the retry loop
+
+                except Exception as chunk_err:
+                    err_str = str(chunk_err)
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        if attempt < max_retries:
+                            delay = retry_delays[attempt]
+                            print(f"[WORKER] Batch {batch_idx+1} rate limited (Attempt {attempt+1}/{max_retries + 1}). Waiting {delay}s and retrying...")
+                            time.sleep(delay)
+                        else:
+                            print(f"[WORKER] Batch {batch_idx+1} failed after {max_retries + 1} attempts due to rate limit: {chunk_err}")
+                    else:
+                        print(f"[WORKER] Batch {batch_idx+1} failed with error: {chunk_err}")
+                        break  # Do not retry on non-rate-limit errors
             
-            # Rate limit protection: wait 8 seconds between API calls
-            time.sleep(8)
+            # Rate limit protection: wait 20 seconds between API calls
+            time.sleep(20)
         
         doc.close()
         
@@ -942,7 +927,7 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
     # Count pages for estimate
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     total_pages = len(doc)
-    estimated_batches = max(1, (total_pages + 2) // 3)  # batches of 3 pages
+    estimated_batches = total_pages  # batches of 1 page
     doc.close()
         
     source_doc = models.SourceDocument(
